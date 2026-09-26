@@ -12,9 +12,14 @@ export default async function SettingsPage() {
         {email && <p className="text-slate-600">{email}</p>}
         {(profile.phone || phone) && <p className="text-slate-600">{profile.phone || phone}</p>}
         {profile.role === "helper" && (
-          <Link href="/onboarding/helper" className="inline-block pt-1 font-semibold text-brand-600">
-            Edit helper profile
-          </Link>
+          <div className="flex gap-4 pt-1">
+            <Link href="/onboarding/helper" className="font-semibold text-brand-600">
+              Edit helper profile
+            </Link>
+            <Link href="/earnings" className="font-semibold text-brand-600">
+              Earnings & payouts
+            </Link>
+          </div>
         )}
         {profile.role === "company" && (
           <Link href="/onboarding/company" className="inline-block pt-1 font-semibold text-brand-600">

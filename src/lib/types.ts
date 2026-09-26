@@ -27,6 +27,8 @@ export type HelperProfile = {
   rating_count: number;
   jobs_completed: number;
   agreed_labor_only_terms_at: string | null;
+  strikes: number;
+  suspended_at: string | null;
 };
 
 export type Company = {
@@ -58,6 +60,8 @@ export type Job = {
   has_heavy_items: boolean;
   status: JobStatus;
   created_at: string;
+  cancelled_at: string | null;
+  completed_at: string | null;
 };
 
 export type ApplicationStatus = "applied" | "accepted" | "declined" | "withdrawn";

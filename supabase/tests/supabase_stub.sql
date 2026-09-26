@@ -13,3 +13,7 @@ create function storage.foldername(name text) returns text[] language sql as $$ 
 alter default privileges in schema public grant all on tables to anon, authenticated;
 alter default privileges in schema public grant execute on functions to anon, authenticated;
 create publication supabase_realtime;
+do $$ begin create role service_role nologin bypassrls; exception when duplicate_object then null; end $$;
+grant usage on schema public to service_role;
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant execute on functions to service_role;

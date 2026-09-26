@@ -3,16 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { toE164 } from "@/lib/phone";
 
 type Method = "email" | "phone";
-
-/** Normalizes a US phone number to E.164 (+1XXXXXXXXXX), or null. */
-function toE164(input: string): string | null {
-  const digits = input.replace(/\D/g, "");
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-  return null;
-}
 
 export default function LoginForm({ intent }: { intent?: "helper" }) {
   const router = useRouter();

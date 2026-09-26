@@ -262,7 +262,8 @@ export default function PostJobForm({
           </dl>
         )}
         <p className="text-xs text-slate-500">
-          You won&apos;t be charged yet. Payment at booking is coming soon; for now, posting lets helpers apply.
+          You&apos;ll pay securely with Stripe on the next screen. We hold the payment until the job is done. Cancel
+          more than 24 hours before the start for a full refund; later cancellations pay each booked helper 1 hour.
         </p>
         <label className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
           <input type="checkbox" name="attest_labor_only" className="mt-1" />
@@ -290,7 +291,7 @@ export default function PostJobForm({
             Next
           </button>
         ) : (
-          <SubmitButton pendingText="Posting…">Post job</SubmitButton>
+          <SubmitButton pendingText="Saving…">Continue to payment</SubmitButton>
         )}
       </div>
     </form>

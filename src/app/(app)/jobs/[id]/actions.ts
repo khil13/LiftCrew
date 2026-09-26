@@ -6,7 +6,8 @@ import { z } from "zod";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth";
-import { emailAboutJob } from "@/lib/email";
+import { notifyUser } from "@/lib/notify";
+import { PaymentsUnavailableError, createJobCheckout, notifyCrew, settleJob } from "@/lib/payments";
 
 export type ActionState = { error?: string; ok?: boolean };
 
@@ -30,6 +31,8 @@ export async function applyToJob(_prev: ActionState, formData: FormData): Promis
   if (!jobId.success || !message.success) return { error: "Check your message and try again." };
   if (session.profile!.role !== "helper") return { error: "Only helpers can apply." };
   if (!session.helper?.agreed_labor_only_terms_at) return { error: "Agree to the labor-only terms in your profile first." };
+  if (!session.helper.stripe_onboarded) return { error: "Set up payouts before applying." };
+  if (session.helper.suspended_at) return { error: "Your account is suspended. Contact support." };
 
   const supabase = createClient();
   const { error } = await supabase
@@ -41,12 +44,10 @@ export async function applyToJob(_prev: ActionState, formData: FormData): Promis
 
   const { data: job } = await supabase.from("jobs").select("poster_id, title").eq("id", jobId.data).single();
   if (job) {
-    await emailAboutJob(
-      job.poster_id,
-      jobId.data,
-      `New applicant for "${job.title}"`,
-      `${session.profile!.full_name} applied to your job "${job.title}".`,
-    );
+    await notifyUser(job.poster_id, jobId.data, {
+      subject: `New applicant for "${job.title}"`,
+      text: `${session.profile!.full_name} applied to your job "${job.title}".`,
+    });
   }
   revalidatePath(`/jobs/${jobId.data}`);
   return { ok: true };
@@ -85,12 +86,11 @@ export async function acceptApplication(_prev: ActionState, formData: FormData):
     supabase.from("jobs").select("title").eq("id", jobId.data).single(),
   ]);
   if (app && job) {
-    await emailAboutJob(
-      app.helper_id,
-      jobId.data,
-      `You're booked: "${job.title}"`,
-      `Good news: you've been accepted for "${job.title}". Open the job to see the details and message the poster.`,
-    );
+    await notifyUser(app.helper_id, jobId.data, {
+      subject: `You're booked: "${job.title}"`,
+      text: `Good news: you've been accepted for "${job.title}". Open the job to see the details and message the poster.`,
+      sms: `You're booked for "${job.title}".`,
+    });
   }
   revalidatePath(`/jobs/${jobId.data}`);
   return { ok: true };
@@ -115,7 +115,7 @@ export async function declineApplication(_prev: ActionState, formData: FormData)
 
 const StatusChange = z.object({
   job_id: z.uuid(),
-  status: z.enum(["cancelled", "in_progress", "completed"]),
+  status: z.enum(["cancelled", "in_progress", "completed", "disputed"]),
 });
 
 export async function changeJobStatus(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -129,6 +129,111 @@ export async function changeJobStatus(_prev: ActionState, formData: FormData): P
     p_status: parsed.data.status,
   });
   if (error) return { error: friendly(error, "Could not update this job.") };
+
+  const jobId = parsed.data.job_id;
+  if (parsed.data.status === "cancelled") {
+    const { data: job } = await supabase.from("jobs").select("title").eq("id", jobId).single();
+    await notifyCrew(jobId, {
+      subject: `Cancelled: "${job?.title}"`,
+      text: `The poster cancelled "${job?.title}". If it was within 24 hours of the start, you'll receive your minimum pay.`,
+      sms: `"${job?.title}" was cancelled.`,
+    });
+  }
+  if (parsed.data.status === "cancelled" || parsed.data.status === "completed") {
+    await settleSafely(jobId);
+  }
+  revalidatePath(`/jobs/${jobId}`);
+  return { ok: true };
+}
+
+/** Settlement failures are retried by the hourly cron, so they never fail the action. */
+async function settleSafely(jobId: string) {
+  try {
+    await settleJob(jobId);
+  } catch (err) {
+    if (!(err instanceof PaymentsUnavailableError)) console.error(`Settling ${jobId} failed`, err);
+  }
+}
+
+export async function payForJob(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireUser();
+  const jobId = uuid.safeParse(formData.get("job_id"));
+  if (!jobId.success) return { error: "Something went wrong." };
+  let url: string;
+  try {
+    url = await createJobCheckout(jobId.data, session.userId, session.email);
+  } catch (err) {
+    if (err instanceof PaymentsUnavailableError) return { error: err.message };
+    console.error(err);
+    return { error: err instanceof Error ? err.message : "Could not start checkout." };
+  }
+  redirect(url);
+}
+
+const Coordinates = z.object({
+  job_id: z.uuid(),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+});
+
+export async function checkIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireUser();
+  const raw = Object.fromEntries([...formData].filter(([, v]) => v !== ""));
+  const parsed = Coordinates.safeParse(raw);
+  if (!parsed.success) return { error: "Something went wrong." };
+  const supabase = createClient();
+  const { error } = await supabase.rpc("check_in", {
+    p_job_id: parsed.data.job_id,
+    p_lat: parsed.data.lat ?? null,
+    p_lng: parsed.data.lng ?? null,
+  });
+  if (error) return { error: friendly(error, "Could not check in.") };
+  revalidatePath(`/jobs/${parsed.data.job_id}`);
+  return { ok: true };
+}
+
+export async function checkOut(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireUser();
+  const jobId = uuid.safeParse(formData.get("job_id"));
+  if (!jobId.success) return { error: "Something went wrong." };
+  const supabase = createClient();
+  const { error } = await supabase.rpc("check_out", { p_job_id: jobId.data });
+  if (error) return { error: friendly(error, "Could not check out.") };
+  revalidatePath(`/jobs/${jobId.data}`);
+  return { ok: true };
+}
+
+export async function reportNoShow(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireUser();
+  const assignmentId = uuid.safeParse(formData.get("assignment_id"));
+  const jobId = uuid.safeParse(formData.get("job_id"));
+  if (!assignmentId.success || !jobId.success) return { error: "Something went wrong." };
+  const supabase = createClient();
+  const { error } = await supabase.rpc("mark_no_show", { p_assignment_id: assignmentId.data });
+  if (error) return { error: friendly(error, "Could not report this no-show.") };
+  revalidatePath(`/jobs/${jobId.data}`);
+  return { ok: true };
+}
+
+const Review = z.object({
+  job_id: z.uuid(),
+  reviewee_id: z.uuid(),
+  rating: z.coerce.number().int().min(1, "Pick a rating.").max(5),
+  comment: z.string().trim().max(1000).optional(),
+});
+
+export async function submitReview(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireUser();
+  const parsed = Review.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const supabase = createClient();
+  const { error } = await supabase.rpc("submit_review", {
+    p_job_id: parsed.data.job_id,
+    p_reviewee_id: parsed.data.reviewee_id,
+    p_rating: parsed.data.rating,
+    p_comment: parsed.data.comment || null,
+  });
+  if (error) return { error: friendly(error, "Could not save your review.") };
   revalidatePath(`/jobs/${parsed.data.job_id}`);
   return { ok: true };
 }

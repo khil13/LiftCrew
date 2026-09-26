@@ -95,13 +95,13 @@ and checks the compliance rules and RLS.
 
 ### Phase 3 — Payments & trust (week 5–6)
 
-- [ ] Stripe Connect Express onboarding for helpers
-- [ ] Payment at booking, hold, release on completion
-- [ ] Check-in / check-out with timestamp (optional GPS check)
-- [ ] Reviews and rating averages (DB trigger to update `rating_avg`)
-- [ ] Cancellation + refund logic
-- [ ] Checkr background check integration (or manual verification to start)
-- [ ] SMS alerts via Twilio
+- [x] Stripe Connect Express onboarding for helpers (required before applying)
+- [x] Payment at booking, hold, release on completion (Checkout + separate transfers; auto-confirm after 48 hrs)
+- [x] Check-in / check-out with timestamp (optional GPS check)
+- [x] Reviews and rating averages (DB trigger to update `rating_avg`)
+- [x] Cancellation + refund logic, no-show strikes (3 = suspended)
+- [x] Manual verification to start (`admin_set_helper_verified`; admin UI in Phase 4). Checkr later.
+- [x] SMS alerts via Twilio (booked, cancelled, day-before reminder)
 
 ### Phase 4 — Company tools & admin (week 7–8)
 
@@ -197,3 +197,15 @@ Decisions made while building that go beyond the original plan:
 - **Notifications.** DB triggers write in-app notifications for new applications, bookings, declines, withdrawals, cancellations, and completion. Emails for new applications and acceptances are best-effort: they need `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and `SUPABASE_SERVICE_ROLE_KEY` (server-only, used to look up the recipient's email) and are skipped when those aren't set.
 - **Chat.** One conversation per job, created on the first acceptance. Messages stream through Supabase Realtime, which applies the same RLS.
 - **Not yet:** instant job alerts to nearby helpers, helpers withdrawing after being booked (Phase 3 cancellation / no-show rules), company "repeat weekly" shifts (Phase 4).
+
+## 12. Implementation notes (Phase 3)
+
+- **Draft until paid.** Posting creates a draft job and sends the poster to Stripe Checkout. Only the Stripe webhook (`checkout.session.completed`) opens the job. A DB trigger stops users from changing any job's status directly; changes go through the job functions or the server.
+- **Money model: separate charges and transfers.** The full estimate is charged upfront into the platform balance (a 7-day card hold would expire for jobs booked weeks ahead). When the job ends, `settleJob()` transfers each helper's share to their Express account and refunds the rest. The math lives in `src/lib/settlement.ts` and is unit-tested.
+  - Completed: each helper who showed up is paid for the booked hours; unfilled spots and no-shows are refunded, along with their share of the fee.
+  - Cancelled more than 24 hours before (or with nobody booked): full refund. Inside 24 hours: each booked helper gets 1 hour of pay (setting `cancellation_policy`), the rest is refunded.
+  - Disputed: nothing moves until an admin decides (Phase 4).
+- **Payouts wait for onboarding.** Helpers must finish Stripe onboarding to apply. If an account later becomes restricted, the payout stays pending and is retried when Stripe reports the account ready, and by the hourly cron.
+- **Hours.** Helpers are paid the booked hours. Checked-in/out hours are recorded for the poster and for disputes, not used for pay yet.
+- **Hourly cron** (`/api/cron`, `vercel.json`): auto-confirms jobs 48 hours after their scheduled end, settles anything still held, retries payouts, and sends day-before reminders. Vercel's Hobby plan only runs crons once a day; Pro runs it hourly.
+- **Idempotency.** Every Stripe call has an idempotency key and every DB write checks the row's current status, so the webhook, actions, and cron can overlap safely.

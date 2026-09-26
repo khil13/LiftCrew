@@ -9,6 +9,7 @@ import { resolvePlace, type ResolvedPlace } from "@/lib/google/places";
 import { validateJobLocation } from "@/lib/compliance/states";
 import { ALLOWED_JOB_TYPES } from "@/lib/compliance/jobTypes";
 import { dollarsToCents } from "@/lib/format";
+import { PaymentsUnavailableError, createJobCheckout } from "@/lib/payments";
 
 export type PostJobState = { error?: string };
 
@@ -118,7 +119,7 @@ export async function postJob(_prev: PostJobState, formData: FormData): Promise<
       has_heavy_items: input.has_heavy_items,
       truck_provided_by_customer: true,
       customer_attested_labor_only: true,
-      status: "open",
+      status: "draft", // opens when the Stripe webhook confirms payment
     })
     .select("id")
     .single();
@@ -126,5 +127,13 @@ export async function postJob(_prev: PostJobState, formData: FormData): Promise<
     console.error(error);
     return { error: "Could not post your job. Please try again." };
   }
-  redirect(`/jobs/${data.id}?posted=1`);
+
+  let checkoutUrl: string;
+  try {
+    checkoutUrl = await createJobCheckout(data.id, session.userId, session.email);
+  } catch (err) {
+    if (!(err instanceof PaymentsUnavailableError)) console.error(err);
+    redirect(`/jobs/${data.id}`); // saved as a draft; the job page offers to pay again
+  }
+  redirect(checkoutUrl);
 }

@@ -83,9 +83,14 @@ check $CO fail "company cannot self-approve"       "update companies set is_appr
 check $CO fail "unapproved company cannot post"    "$JOB values ('$CO', 'Shift', '{loading}', 'a', 'NJ', 'b', 'NJ', now(), 3, 2500, true)"
 
 # Applications
+check $C  fail "cannot post a job as already open"  "insert into jobs (poster_id, title, job_type, start_address, start_state, scheduled_start, estimated_hours, pay_rate_cents, customer_attested_labor_only, status) values ('$C', 'x', '{loading}', 'a', 'NJ', now(), 3, 2500, true, 'open')"
+check $C  fail "cannot open own draft without paying" "update jobs set status = 'open' where poster_id = '$C'"
+$P -c "update jobs set status = 'open'" >/dev/null   # payment webhook (service role) opens paid jobs
 check $H  fail "cannot apply before labor terms"   "insert into job_applications (job_id, helper_id) select id, '$H' from jobs limit 1"
 check $C  fail "signed-out cannot call helpers"     "reset role; set local role anon; select is_admin()"
 check $H  ok   "helper agrees to labor-only terms" "update helper_profiles set agreed_labor_only_terms_at = now() where id = '$H'"
+check $H  fail "cannot apply before payouts set up" "insert into job_applications (job_id, helper_id) select id, '$H' from jobs limit 1"
+$P -c "update helper_profiles set stripe_onboarded = true where id = '$H'" >/dev/null   # Stripe onboarding webhook
 check $H  ok   "helper applies after terms"        "insert into job_applications (job_id, helper_id) select id, '$H' from jobs limit 1"
 check $C  fail "poster cannot accept by editing"   "update job_applications set status = 'accepted'"
 
@@ -117,6 +122,7 @@ expect() { # expect <description> <actual> <expected>
 check $H2 ok   "second helper onboards"            "insert into profiles (id, role, full_name) values ('$H2', 'helper', 'Hana');
   insert into helper_profiles (id, hourly_rate_cents, skills, home_lat, home_lng, home_state, agreed_labor_only_terms_at)
   values ('$H2', 2500, '{loading}', 40.72, -74.05, 'NJ', now())"
+$P -c "update helper_profiles set stripe_onboarded = true where id = '$H2'" >/dev/null
 
 GEO="insert into jobs (id, poster_id, title, job_type, start_address, start_state, start_lat, start_lng,
                      scheduled_start, estimated_hours, helpers_needed, pay_rate_cents, customer_attested_labor_only)"
@@ -124,6 +130,7 @@ NEAR=aaaaaaaa-0000-0000-0000-000000000001
 FAR=aaaaaaaa-0000-0000-0000-000000000002
 check $C  ok   "post nearby job (Newark)"          "$GEO values ('$NEAR', '$C', 'Load truck', '{loading}', 'Newark', 'NJ', 40.7357, -74.1724, now() + interval '3 days', 3, 2, 3000, true)"
 check $C  ok   "post far job (Atlantic City)"      "$GEO values ('$FAR', '$C', 'Far job', '{packing}', 'AC', 'NJ', 39.3643, -74.4229, now() + interval '3 days', 2, 1, 3000, true)"
+$P -c "update jobs set status = 'open' where id in ('$NEAR', '$FAR')" >/dev/null
 
 expect "feed shows only jobs within radius"  "$(q $H "select string_agg(title, ',') from job_feed() where title in ('Load truck', 'Far job')")" "Load truck"
 expect "feed distance is ~4.5 miles"         "$(q $H "select distance_miles between 3 and 6 from job_feed() where id = '$NEAR'")" "t"
@@ -174,6 +181,67 @@ expect "pending applicant declined on cancel" "$(q $H "select status from job_ap
 check $H  ok   "helper marks notifications read"   "update notifications set read_at = now() where profile_id = '$H'"
 check $H  fail "cannot rewrite notification text"  "update notifications set body = 'x'"
 check $H  fail "cannot create notifications"       "select notify('$H', 'x', null, 'spam')"
+
+# ---------------------------------------------------------------------------
+# Phase 3: check-in / check-out, no-shows, completion, reviews, admin
+# ---------------------------------------------------------------------------
+J3=aaaaaaaa-0000-0000-0000-000000000003
+J4=aaaaaaaa-0000-0000-0000-000000000004
+J5=aaaaaaaa-0000-0000-0000-000000000005
+check $C  ok   "post job starting in 30 minutes"   "$GEO values ('$J3', '$C', 'Soon job', '{loading}', 'Newark', 'NJ', 40.7357, -74.1724, now() + interval '30 minutes', 2, 1, 3000, true)"
+check $C  ok   "post job for no-show test"         "$GEO values ('$J4', '$C', 'No-show job', '{loading}', 'Newark', 'NJ', 40.7357, -74.1724, now() + interval '1 day', 2, 2, 3000, true)"
+$P -c "update jobs set status = 'open' where id in ('$J3', '$J4')" >/dev/null
+check $H  ok   "helper applies to soon job"        "insert into job_applications (job_id, helper_id) values ('$J3', '$H')"
+check $C  ok   "poster books helper"               "select accept_application(id) from job_applications where job_id = '$J3'"
+check $H2 fail "unbooked helper cannot check in"   "select check_in('$J3')"
+check $H  ok   "booked helper checks in with GPS"  "select check_in('$J3', 40.7360, -74.1720)"
+expect "check-in starts the job"             "$(q $C "select status from jobs where id = '$J3'")" "in_progress"
+expect "check-in distance recorded"          "$(q $H "select check_in_distance_miles from job_assignments where job_id = '$J3'")" "0.0"
+check $H  fail "cannot check in twice"             "select check_in('$J3')"
+check $H  ok   "helper checks out"                 "select check_out('$J3')"
+expect "hours worked recorded"               "$(q $H "select hours_worked is not null from job_assignments where job_id = '$J3'")" "t"
+check $H  fail "cannot check out twice"            "select check_out('$J3')"
+
+check $H  fail "cannot review before completion"   "select submit_review('$J3', '$C', 5, 'Great')"
+check $C  ok   "poster completes job"              "select set_job_status('$J3', 'completed')"
+expect "completion time recorded"            "$(q $C "select completed_at is not null from jobs where id = '$J3'")" "t"
+check $C  ok   "poster reviews helper"             "select submit_review('$J3', '$H', 4, 'Careful and quick')"
+check $C  fail "cannot review twice"               "select submit_review('$J3', '$H', 5, null)"
+check $C  fail "rating must be 1-5"                "select submit_review('$J3', '$H', 6, null)"
+check $H  ok   "helper reviews poster"             "select submit_review('$J3', '$C', 5, 'Clear instructions')"
+check $H2 fail "outsider cannot review"            "select submit_review('$J3', '$H', 1, 'fake')"
+check $C  fail "reviews not insertable directly"   "insert into reviews (job_id, reviewer_id, reviewee_id, rating) values ('$J3', '$C', '$H2', 1)"
+expect "helper rating updated"               "$(q $C "select rating_avg || '/' || rating_count from helper_profiles where id = '$H'")" "4.0/1"
+
+check $H  ok   "helper 1 applies (no-show job)"    "insert into job_applications (job_id, helper_id) values ('$J4', '$H')"
+check $H2 ok   "helper 2 applies (no-show job)"    "insert into job_applications (job_id, helper_id) values ('$J4', '$H2')"
+check $C  ok   "poster books both"                 "select accept_application(id) from job_applications where job_id = '$J4'"
+check $C  fail "no-show only after start"          "select mark_no_show(id) from job_assignments where job_id = '$J4' and helper_id = '$H2'"
+$P -c "update jobs set scheduled_start = now() - interval '1 hour' where id = '$J4'; update helper_profiles set strikes = 2 where id = '$H2'" >/dev/null
+check $H  ok   "helper 1 checks in late"           "select check_in('$J4')"
+NS=$($P -c "select id from job_assignments where job_id = '$J4' and helper_id = '$H2'")
+check $H  fail "helper cannot report no-shows"     "select mark_no_show('$NS')"
+check $C  fail "checked-in helper isn't a no-show" "select mark_no_show(id) from job_assignments where job_id = '$J4' and helper_id = '$H'"
+check $C  ok   "poster reports helper 2 no-show"   "select mark_no_show(id) from job_assignments where job_id = '$J4' and helper_id = '$H2'"
+expect "third strike suspends helper"        "$(q $H2 "select strikes || ',' || (suspended_at is not null) from get_my_helper_profile()")" "3,true"
+check $H2 fail "no-show cannot check in"           "select check_in('$J4')"
+check $C  ok   "post another job"                  "$GEO values ('$J5', '$C', 'Later job', '{loading}', 'Newark', 'NJ', 40.7357, -74.1724, now() + interval '2 days', 2, 1, 3000, true)"
+$P -c "update jobs set status = 'open' where id = '$J5'" >/dev/null
+check $H2 fail "suspended helper cannot apply"     "insert into job_applications (job_id, helper_id) values ('$J5', '$H2')"
+check $C  ok   "poster disputes job in progress"   "select set_job_status('$J4', 'disputed')"
+check $C  fail "cannot complete a disputed job"    "select set_job_status('$J4', 'completed')"
+
+check $H  ok   "helper applies to later job"       "insert into job_applications (job_id, helper_id) values ('$J5', '$H')"
+check $C  ok   "poster books helper on later job"  "select accept_application(id) from job_applications where job_id = '$J5'"
+$P -c "update jobs set status = 'in_progress', scheduled_start = now() - interval '4 days' where id = '$J5'" >/dev/null
+check $C  fail "users cannot run auto-complete"    "select auto_complete_jobs()"
+expect "auto-complete after 48 hours"        "$($P -c "select count(*) from auto_complete_jobs() where auto_complete_jobs = '$J5'")" "1"
+expect "auto-completed job is complete"      "$(q $C "select status from jobs where id = '$J5'")" "completed"
+
+check $C  fail "non-admin cannot verify helpers"   "select admin_set_helper_verified('$H', true)"
+check $CO fail "non-admin cannot approve companies" "select admin_set_company_approved('$CO', true)"
+check $C  fail "customers cannot write payments"   "insert into payments (job_id, payer_id, amount_cents, platform_fee_cents) values ('$J3', '$C', 1, 0)"
+check $H  fail "helpers cannot write payouts"      "insert into payouts (helper_id, amount_cents) values ('$H', 100000)"
 
 echo
 if [ $failures -eq 0 ]; then echo "All DB checks passed"; else echo "$failures DB check(s) failed"; exit 1; fi

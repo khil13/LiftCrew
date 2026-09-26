@@ -21,14 +21,30 @@ export default async function HomePage() {
             <p className="text-slate-600">{helper.skills.map((s) => JOB_TYPE_LABELS[s as JobType] ?? s).join(", ")}</p>
             <p className="text-slate-600">
               {helper.is_verified ? "✓ Verified" : "Verification pending"} ·{" "}
-              {helper.stripe_onboarded ? "Payouts set up" : "Payouts not set up yet"}
+              {helper.rating_count > 0 ? `★ ${helper.rating_avg} (${helper.rating_count})` : "No reviews yet"}
             </p>
+            {helper.suspended_at && (
+              <p className="font-medium text-red-700">Your account is suspended after repeated no-shows.</p>
+            )}
             <Link href="/onboarding/helper" className="inline-block pt-1 font-semibold text-brand-600">
               Edit profile
             </Link>
           </div>
-          <Link href="/jobs" className="btn-primary">
-            Find jobs near you
+          {helper.stripe_onboarded ? (
+            <Link href="/jobs" className="btn-primary">
+              Find jobs near you
+            </Link>
+          ) : (
+            <div className="card space-y-2 text-sm">
+              <p className="font-semibold">One more step: set up payouts</p>
+              <p className="text-slate-600">Connect a bank account through Stripe so you can apply to jobs and get paid.</p>
+              <Link href="/earnings" className="btn-primary">
+                Set up payouts
+              </Link>
+            </div>
+          )}
+          <Link href="/earnings" className="btn-secondary">
+            Earnings
           </Link>
         </>
       )}
