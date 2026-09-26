@@ -207,7 +207,7 @@ Decisions made while building that go beyond the original plan:
   - Disputed: nothing moves until an admin decides (Phase 4).
 - **Payouts wait for onboarding.** Helpers must finish Stripe onboarding to apply. If an account later becomes restricted, the payout stays pending and is retried when Stripe reports the account ready, and by the hourly cron.
 - **Hours.** Helpers are paid the booked hours. Checked-in/out hours are recorded for the poster and for disputes, not used for pay yet.
-- **Hourly cron** (`/api/cron`, `vercel.json`): auto-confirms jobs 48 hours after their scheduled end, settles anything still held, retries payouts, and sends day-before reminders. Vercel's Hobby plan only runs crons once a day; Pro runs it hourly.
+- **Cron** (`/api/cron`, `vercel.json`): auto-confirms jobs 48 hours after their scheduled end, settles anything still held, retries payouts, and sends day-before reminders. It runs once a day (13:00 UTC, 9 AM Eastern) because Vercel's Hobby plan allows only daily crons. On Pro, change the schedule to `0 * * * *` to run hourly.
 - **Idempotency.** Every Stripe call has an idempotency key and every DB write checks the row's current status, so the webhook, actions, and cron can overlap safely.
 
 ## 13. Implementation notes (Phase 4)

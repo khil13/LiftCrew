@@ -3,7 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyCrew, releasePendingPayouts, settleJob } from "@/lib/payments";
 import { formatJobTime } from "@/lib/format";
 
-// Hourly maintenance (vercel.json). Vercel sends "Authorization: Bearer $CRON_SECRET".
+// Scheduled maintenance (vercel.json: daily on Vercel Hobby, hourly on Pro).
+// Vercel sends "Authorization: Bearer $CRON_SECRET".
 //   1. Auto-complete jobs 48 hours after their scheduled end (no dispute).
 //   2. Settle completed/cancelled jobs whose payment is still held.
 //   3. Retry payouts that were waiting on Stripe onboarding or failed.
