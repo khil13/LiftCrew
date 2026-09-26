@@ -1,4 +1,5 @@
 import "server-only";
+import { envValue } from "@/lib/env";
 
 // Places API (New), called server-side only. The state for any address always
 // comes from administrative_area_level_1 here, never from user-typed text.
@@ -6,7 +7,7 @@ import "server-only";
 const API = "https://places.googleapis.com/v1";
 
 function apiKey(): string {
-  const key = process.env.GOOGLE_MAPS_SERVER_API_KEY;
+  const key = envValue("GOOGLE_MAPS_SERVER_API_KEY");
   if (!key) throw new Error("GOOGLE_MAPS_SERVER_API_KEY is not set");
   return key;
 }
