@@ -1,0 +1,8 @@
+{
+  "name": "LiftCrew",
+  "short_name": "LiftCrew",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1d4ed8"
+}
