@@ -27,14 +27,19 @@ export default async function HomePage() {
               Edit profile
             </Link>
           </div>
-          <div className="card text-sm text-slate-600">Job feed opens soon. We&apos;ll alert you when jobs near you are posted.</div>
+          <Link href="/jobs" className="btn-primary">
+            Find jobs near you
+          </Link>
         </>
       )}
 
       {profile.role === "customer" && (
         <div className="card text-sm text-slate-600">
           <p className="font-semibold text-slate-900">Need moving help?</p>
-          <p className="mt-1">Posting jobs opens soon. You bring the truck, LiftCrew helpers handle the lifting.</p>
+          <p className="mt-1">You bring the truck, LiftCrew helpers handle the lifting.</p>
+          <Link href="/jobs/new" className="btn-primary mt-3">
+            Post a job
+          </Link>
         </div>
       )}
 
@@ -42,7 +47,9 @@ export default async function HomePage() {
         <div className="card text-sm">
           <p className="font-semibold">{company.business_name}</p>
           {company.is_approved ? (
-            <p className="mt-1 text-slate-600">Approved. Posting shifts opens soon.</p>
+            <Link href="/jobs/new" className="btn-primary mt-3">
+              Post a shift
+            </Link>
           ) : (
             <p className="mt-1 text-amber-700">
               Approval pending. We&apos;re reviewing your company; you&apos;ll be able to post shifts once approved.

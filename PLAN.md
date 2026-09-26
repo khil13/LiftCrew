@@ -86,12 +86,12 @@ and checks the compliance rules and RLS.
 
 ### Phase 2 — Core marketplace (week 3–4)
 
-- [ ] Post-a-job multi-step form with Google Places autocomplete
-- [ ] Job feed with distance filter (PostGIS or haversine query)
-- [ ] Apply / accept / decline flow
-- [ ] Job status lifecycle
-- [ ] Realtime chat per job (Supabase Realtime)
-- [ ] Email notifications for new applications and acceptances
+- [x] Post-a-job multi-step form with Google Places autocomplete (payment step comes in Phase 3)
+- [x] Job feed with distance filter (haversine query, `job_feed()`)
+- [x] Apply / accept / decline flow
+- [x] Job status lifecycle (open → filled → in progress → completed, or cancelled)
+- [x] Realtime chat per job (Supabase Realtime)
+- [x] Email notifications for new applications and acceptances (Resend), plus in-app alerts
 
 ### Phase 3 — Payments & trust (week 5–6)
 
@@ -188,3 +188,12 @@ Decisions made while building that go beyond the original plan:
 - **Moderation.** Added `content_flags` plus DB triggers that match `app_settings.moderation_phrases` against job titles/descriptions and chat messages. Out-of-state city detection is not done yet.
 - **Addresses** are looked up through a server route with `GOOGLE_MAPS_SERVER_API_KEY` (Places API New). The client only ever submits a place id.
 - **Server-managed tables.** Job assignments, payments, payouts, conversations, and reviews are read-only for clients; the server will write them in Phases 2–3.
+
+## 11. Implementation notes (Phase 2)
+
+- **Multi-table changes run in DB functions.** `accept_application()` books the helper, adds them to the job chat, and marks the job filled when the crew is complete (declining the rest). `set_job_status()` enforces the lifecycle: cancel from open/filled, start from 2 hours before the scheduled time with at least one helper, complete from in progress. Posters can no longer mark an application accepted by editing it directly.
+- **Job feed.** `job_feed()` returns open, upcoming jobs in allowed states within the helper's service radius (haversine from their private home location, which is never returned). Filters: distance, date, minimum pay, job type.
+- **Address checks happen three times.** The form checks each picked address as soon as it is chosen (`/api/places/check`), the server action re-resolves both place ids and validates, and the DB constraint + trigger check again.
+- **Notifications.** DB triggers write in-app notifications for new applications, bookings, declines, withdrawals, cancellations, and completion. Emails for new applications and acceptances are best-effort: they need `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and `SUPABASE_SERVICE_ROLE_KEY` (server-only, used to look up the recipient's email) and are skipped when those aren't set.
+- **Chat.** One conversation per job, created on the first acceptance. Messages stream through Supabase Realtime, which applies the same RLS.
+- **Not yet:** instant job alerts to nearby helpers, helpers withdrawing after being booked (Phase 3 cancellation / no-show rules), company "repeat weekly" shifts (Phase 4).

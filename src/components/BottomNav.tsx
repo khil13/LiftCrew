@@ -12,7 +12,7 @@ const ICONS: Record<string, string> = {
   settings: "M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM4 12h2M18 12h2M12 4v2M12 18v2",
 };
 
-export default function BottomNav({ role }: { role: UserRole }) {
+export default function BottomNav({ role, unread = 0 }: { role: UserRole; unread?: number }) {
   const pathname = usePathname();
   const tabs = [
     { href: "/home", label: "Home", icon: "home" },
@@ -36,9 +36,16 @@ export default function BottomNav({ role }: { role: UserRole }) {
                   active ? "text-brand-600" : "text-slate-500"
                 }`}
               >
-                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.8}>
-                  <path d={ICONS[t.icon]} strokeLinejoin="round" strokeLinecap="round" />
-                </svg>
+                <span className="relative">
+                  {t.icon === "notifications" && unread > 0 && (
+                    <span className="absolute -right-1.5 -top-1 min-w-4 rounded-full bg-red-600 px-1 text-center text-[10px] font-bold leading-4 text-white">
+                      {unread > 9 ? "9+" : unread}
+                    </span>
+                  )}
+                  <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.8}>
+                    <path d={ICONS[t.icon]} strokeLinejoin="round" strokeLinecap="round" />
+                  </svg>
+                </span>
                 {t.label}
               </Link>
             </li>

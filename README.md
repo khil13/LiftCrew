@@ -34,6 +34,8 @@ Next.js 14 (App Router) · TypeScript · Tailwind · Supabase (Postgres, Auth, S
    GOOGLE_MAPS_SERVER_API_KEY=
    ```
 
+   For email notifications also set `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `NEXT_PUBLIC_SITE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` (server-only). Without them the app still works and shows in-app alerts only.
+
 7. Run the app:
 
    ```sh

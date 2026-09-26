@@ -37,3 +37,42 @@ export type Company = {
   transport_credentials: string | null;
   is_approved: boolean;
 };
+
+export type JobStatus = "draft" | "open" | "filled" | "in_progress" | "completed" | "cancelled" | "disputed";
+
+export type Job = {
+  id: string;
+  poster_id: string;
+  title: string;
+  description: string | null;
+  job_type: string[];
+  start_address: string;
+  start_state: string;
+  end_address: string | null;
+  end_state: string | null;
+  scheduled_start: string;
+  estimated_hours: number;
+  helpers_needed: number;
+  pay_rate_cents: number;
+  has_stairs: boolean;
+  has_heavy_items: boolean;
+  status: JobStatus;
+  created_at: string;
+};
+
+export type ApplicationStatus = "applied" | "accepted" | "declined" | "withdrawn";
+
+export type FeedJob = Pick<
+  Job,
+  | "id"
+  | "title"
+  | "job_type"
+  | "start_address"
+  | "end_address"
+  | "scheduled_start"
+  | "estimated_hours"
+  | "helpers_needed"
+  | "pay_rate_cents"
+  | "has_stairs"
+  | "has_heavy_items"
+> & { distance_miles: number; applied: boolean };

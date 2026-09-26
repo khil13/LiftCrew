@@ -4,6 +4,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type Suggestion = { placeId: string; text: string };
 
+/** Result of /api/places/check for a picked address. */
+export type AddressCheck = { ok: boolean; state: string | null; error: string | null };
+
 /**
  * US address picker backed by /api/places/autocomplete. Submits only the
  * Google place id (and a session token); the server resolves the state from
@@ -14,18 +17,44 @@ export default function AddressAutocomplete({
   label,
   defaultText = "",
   required,
+  onCheck,
 }: {
   name: string;
   label: string;
   defaultText?: string;
   required?: boolean;
+  /** When set, the picked address is checked against the allowed states. Called with null when cleared. */
+  onCheck?: (result: AddressCheck | null) => void;
 }) {
   const sessionToken = useMemo(() => crypto.randomUUID(), []);
   const [text, setText] = useState(defaultText);
   const [placeId, setPlaceId] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const skipNext = useRef(true);
+
+  async function check(id: string) {
+    if (!onCheck) return;
+    setChecking(true);
+    try {
+      const res = await fetch(`/api/places/check?placeId=${encodeURIComponent(id)}&session=${sessionToken}`);
+      const body = await res.json();
+      const result: AddressCheck = {
+        ok: Boolean(body.ok),
+        state: body.state ?? null,
+        error: body.ok ? null : (body.error ?? "We couldn't verify that address."),
+      };
+      setCheckError(result.error);
+      onCheck(result);
+    } catch {
+      setCheckError("We couldn't verify that address.");
+      onCheck({ ok: false, state: null, error: "We couldn't verify that address." });
+    } finally {
+      setChecking(false);
+    }
+  }
 
   useEffect(() => {
     if (skipNext.current) {
@@ -69,7 +98,9 @@ export default function AddressAutocomplete({
         value={text}
         onChange={(e) => {
           setText(e.target.value);
+          if (placeId) onCheck?.(null);
           setPlaceId("");
+          setCheckError(null);
         }}
         placeholder="Start typing an address"
         required={required}
@@ -88,6 +119,7 @@ export default function AddressAutocomplete({
                   setText(s.text);
                   setPlaceId(s.placeId);
                   setSuggestions([]);
+                  void check(s.placeId);
                 }}
               >
                 {s.text}
@@ -97,6 +129,8 @@ export default function AddressAutocomplete({
         </ul>
       )}
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {checking && <p className="mt-1 text-xs text-slate-500">Checking address…</p>}
+      {checkError && <p className="mt-1 text-sm text-red-600">{checkError}</p>}
       {text && !placeId && !error && suggestions.length === 0 && text !== defaultText && (
         <p className="mt-1 text-xs text-slate-500">Pick an address from the list.</p>
       )}
