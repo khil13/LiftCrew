@@ -115,7 +115,7 @@ export async function declineApplication(_prev: ActionState, formData: FormData)
 
 const StatusChange = z.object({
   job_id: z.uuid(),
-  status: z.enum(["cancelled", "in_progress", "completed", "disputed"]),
+  status: z.enum(["cancelled", "in_progress", "completed"]),
 });
 
 export async function changeJobStatus(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -235,5 +235,54 @@ export async function submitReview(_prev: ActionState, formData: FormData): Prom
   });
   if (error) return { error: friendly(error, "Could not save your review.") };
   revalidatePath(`/jobs/${parsed.data.job_id}`);
+  return { ok: true };
+}
+
+export async function openDispute(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireUser();
+  const jobId = uuid.safeParse(formData.get("job_id"));
+  const reason = z.string().trim().max(2000).safeParse(formData.get("reason") ?? "");
+  if (!jobId.success || !reason.success) return { error: "Something went wrong." };
+  const supabase = createClient();
+  const { error } = await supabase.rpc("open_dispute", { p_job_id: jobId.data, p_reason: reason.data });
+  if (error) return { error: friendly(error, "Could not report the problem.") };
+  revalidatePath(`/jobs/${jobId.data}`);
+  return { ok: true };
+}
+
+export async function toggleFavorite(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireUser();
+  const helperId = uuid.safeParse(formData.get("helper_id"));
+  const jobId = uuid.optional().safeParse(formData.get("job_id") ?? undefined);
+  if (!helperId.success || !jobId.success) return { error: "Something went wrong." };
+  if (session.profile!.role !== "company") return { error: "Favorites are for companies." };
+  const supabase = createClient();
+  const { error } =
+    formData.get("favorite") === "remove"
+      ? await supabase.from("favorite_helpers").delete().eq("company_id", session.userId).eq("helper_id", helperId.data)
+      : await supabase.from("favorite_helpers").insert({ company_id: session.userId, helper_id: helperId.data });
+  if (error && error.code !== "23505") return { error: "Could not update favorites." };
+  if (jobId.data) revalidatePath(`/jobs/${jobId.data}`);
+  revalidatePath("/favorites");
+  return { ok: true };
+}
+
+export async function inviteHelper(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireUser();
+  const helperId = uuid.safeParse(formData.get("helper_id"));
+  const jobId = uuid.safeParse(formData.get("job_id"));
+  if (!helperId.success || !jobId.success) return { error: "Something went wrong." };
+  const supabase = createClient();
+  const { error } = await supabase.rpc("invite_helper", { p_job_id: jobId.data, p_helper_id: helperId.data });
+  if (error) return { error: friendly(error, "Could not send the invite.") };
+
+  const { data: job } = await supabase.from("jobs").select("title").eq("id", jobId.data).single();
+  const from = session.company?.business_name ?? session.profile!.full_name;
+  await notifyUser(helperId.data, jobId.data, {
+    subject: `${from} invited you to "${job?.title}"`,
+    text: `${from} would like you on their crew for "${job?.title}". Open the job to apply.`,
+    sms: `${from} invited you to "${job?.title}".`,
+  });
+  revalidatePath(`/jobs/${jobId.data}`);
   return { ok: true };
 }

@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   title: "LiftCrew",
   description: "Labor-only moving help. Book local helpers to load, unload, and pack.",
   manifest: "/manifest.webmanifest",
+  icons: { icon: "/icon.svg", apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "LiftCrew", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

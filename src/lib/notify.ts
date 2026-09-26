@@ -1,8 +1,9 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toE164 } from "@/lib/phone";
+import { pushToUser } from "@/lib/push";
 
-// Outbound email (Resend) and SMS (Twilio). In-app notifications are written by
+// Outbound email (Resend), SMS (Twilio), and web push. In-app notifications are written by
 // DB triggers; these are best effort and never throw, so a provider problem
 // can't fail the action that triggered them.
 
@@ -70,6 +71,7 @@ export async function notifyUser(
     await Promise.all([
       email ? sendEmail(email, message.subject, `${message.text}\n\nView the job: ${link}\n\n— LiftCrew`) : null,
       phone && message.sms ? sendSms(phone, `LiftCrew: ${message.sms} ${link}`) : null,
+      pushToUser(profileId, { title: message.subject, body: message.sms ?? message.text, url: `/jobs/${jobId}` }),
     ]);
   } catch (err) {
     console.error("Notification failed", err);

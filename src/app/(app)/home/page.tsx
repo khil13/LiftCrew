@@ -78,7 +78,9 @@ export default async function HomePage() {
       )}
 
       {profile.role === "admin" && (
-        <div className="card text-sm text-slate-600">Admin tools are coming in a later phase.</div>
+        <Link href="/admin" className="btn-primary">
+          Open admin dashboard
+        </Link>
       )}
     </div>
   );

@@ -16,9 +16,12 @@ import {
   changeJobStatus,
   checkOut,
   declineApplication,
+  inviteHelper,
+  openDispute,
   payForJob,
   reportNoShow,
   submitReview,
+  toggleFavorite,
   withdrawApplication,
 } from "./actions";
 
@@ -87,6 +90,7 @@ export default async function JobPage({
       </div>
 
       <JobDetails job={job} />
+      <DisputeInfo job={job} />
 
       {conversation && (
         <Link href={`/messages/${conversation.id}`} className="btn-secondary">
@@ -157,13 +161,20 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
         .from("job_assignments")
         .select("id, helper_id, checked_in_at, checked_out_at, hours_worked, check_in_distance_miles, no_show")
         .eq("job_id", job.id),
-      supabase.from("payments").select("status, amount_cents, refunded_cents").eq("job_id", job.id).maybeSingle<Payment>(),
+      supabase
+        .from("payments")
+        .select("status, amount_cents, refunded_cents")
+        .eq("job_id", job.id)
+        .maybeSingle<Payment>(),
       supabase.from("reviews").select("reviewee_id").eq("job_id", job.id).eq("reviewer_id", session.userId),
       getPlatformFeePercent(),
     ]);
   const applicants = (apps ?? []) as unknown as Applicant[];
   const assignments = new Map(((assignmentRows ?? []) as Assignment[]).map((a) => [a.helper_id, a]));
   const reviewed = new Set((myReviews ?? []).map((r) => r.reviewee_id as string));
+  const isCompany = session.profile!.role === "company";
+  const favorites = isCompany ? await loadFavorites(session.userId) : [];
+  const favoriteIds = new Set(favorites.map((f) => f.helper_id));
   const crew = applicants.filter((a) => a.status === "accepted");
   const pending = applicants.filter((a) => a.status === "applied");
   const fields = { job_id: job.id };
@@ -181,12 +192,17 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
       <div className="card space-y-3 text-sm">
         <p className="font-semibold">Pay to publish your job</p>
         <p className="text-slate-600">
-          Helpers can see and apply to your job once it&apos;s paid. Total {formatCents(estimate.totalCents)}, held until the
-          job is done.
+          Helpers can see and apply to your job once it&apos;s paid. Total {formatCents(estimate.totalCents)}, held
+          until the job is done.
         </p>
         <div className="flex gap-2">
           <ActionForm action={payForJob} fields={fields} label="Pay with Stripe" variant="primary" />
-          <ActionForm action={changeJobStatus} fields={{ ...fields, status: "cancelled" }} label="Discard" confirm="Discard this draft?" />
+          <ActionForm
+            action={changeJobStatus}
+            fields={{ ...fields, status: "cancelled" }}
+            label="Discard"
+            confirm="Discard this draft?"
+          />
         </div>
       </div>
     );
@@ -221,14 +237,40 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
                       confirm="Report this helper as a no-show? They won't be paid and will get a strike."
                     />
                   )}
-                {job.status === "completed" && a.helper && assignment && !assignment.no_show && !reviewed.has(a.helper.id) && (
-                  <ReviewForm jobId={job.id} revieweeId={a.helper.id} name={a.helper.profile?.full_name ?? "this helper"} />
+                {isCompany && a.helper && (
+                  <ActionForm
+                    action={toggleFavorite}
+                    fields={{
+                      ...fields,
+                      helper_id: a.helper.id,
+                      favorite: favoriteIds.has(a.helper.id) ? "remove" : "add",
+                    }}
+                    label={favoriteIds.has(a.helper.id) ? "★ In your favorites (remove)" : "☆ Add to favorites"}
+                  />
                 )}
+                {job.status === "completed" &&
+                  a.helper &&
+                  assignment &&
+                  !assignment.no_show &&
+                  !reviewed.has(a.helper.id) && (
+                    <ReviewForm
+                      jobId={job.id}
+                      revieweeId={a.helper.id}
+                      name={a.helper.profile?.full_name ?? "this helper"}
+                    />
+                  )}
               </ApplicantCard>
             );
           })
         )}
       </section>
+
+      {job.status === "open" && isCompany && (
+        <InvitePanel
+          jobId={job.id}
+          favorites={favorites.filter((f) => !applicants.some((a) => a.helper?.id === f.helper_id))}
+        />
+      )}
 
       {job.status === "open" && (
         <section className="space-y-2">
@@ -257,7 +299,9 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
             fields={{ ...fields, status: "in_progress" }}
             label="Start job"
             variant="primary"
-            confirm={job.status === "open" ? "Start with the helpers you have? Other applicants will be declined." : undefined}
+            confirm={
+              job.status === "open" ? "Start with the helpers you have? Other applicants will be declined." : undefined
+            }
           />
         )}
         {job.status === "in_progress" && (
@@ -268,13 +312,6 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
               label="Confirm job complete"
               variant="primary"
               confirm="Confirm the job is done? Your helpers get paid right away."
-            />
-            <ActionForm
-              action={changeJobStatus}
-              fields={{ ...fields, status: "disputed" }}
-              label="Report a problem"
-              variant="danger"
-              confirm="Report a problem? Payment stays on hold until our team reviews it."
             />
           </>
         )}
@@ -293,9 +330,28 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
         )}
       </div>
       {job.status === "in_progress" && (
-        <p className="text-xs text-slate-500">
-          If you don&apos;t confirm or report a problem, the job is confirmed automatically 48 hours after it ends.
-        </p>
+        <>
+          <details className="card text-sm">
+            <summary className="cursor-pointer font-medium text-red-700">Report a problem</summary>
+            <div className="mt-3">
+              <ActionForm action={openDispute} fields={fields} label="Report problem" variant="danger">
+                <p className="text-slate-600">
+                  Payment stays on hold while our team reviews what happened. We&apos;ll contact you and the crew.
+                </p>
+                <textarea
+                  name="reason"
+                  rows={3}
+                  maxLength={2000}
+                  className="input"
+                  placeholder="What went wrong? For example: a helper left early, or items were damaged."
+                />
+              </ActionForm>
+            </div>
+          </details>
+          <p className="text-xs text-slate-500">
+            If you don&apos;t confirm or report a problem, the job is confirmed automatically 48 hours after it ends.
+          </p>
+        </>
       )}
     </>
   );
@@ -352,8 +408,8 @@ function ApplicantCard({ applicant, children }: { applicant: Applicant; children
             {h?.profile?.full_name ?? "Helper"} {h?.is_verified && <span className="text-brand-600">✓ Verified</span>}
           </p>
           <p className="text-slate-600">
-            {h && h.rating_count > 0 ? `★ ${h.rating_avg} (${h.rating_count})` : "New"} · {h?.jobs_completed ?? 0} jobs ·{" "}
-            {h?.years_experience ?? 0} yrs exp.
+            {h && h.rating_count > 0 ? `★ ${h.rating_avg} (${h.rating_count})` : "New"} · {h?.jobs_completed ?? 0} jobs
+            · {h?.years_experience ?? 0} yrs exp.
           </p>
         </div>
       </div>
@@ -379,7 +435,13 @@ function ReviewForm({ jobId, revieweeId, name }: { jobId: string; revieweeId: st
           </option>
         ))}
       </select>
-      <textarea name="comment" rows={2} maxLength={1000} className="input" placeholder="Anything others should know? (optional)" />
+      <textarea
+        name="comment"
+        rows={2}
+        maxLength={1000}
+        className="input"
+        placeholder="Anything others should know? (optional)"
+      />
     </ActionForm>
   );
 }
@@ -413,12 +475,7 @@ async function HelperPanel({ job, session }: { job: Job; session: Session }) {
         .select("amount_cents, status")
         .eq("assignment_id", assignment.id)
         .maybeSingle<{ amount_cents: number; status: string }>(),
-      supabase
-        .from("reviews")
-        .select("id")
-        .eq("job_id", job.id)
-        .eq("reviewer_id", session.userId)
-        .maybeSingle(),
+      supabase.from("reviews").select("id").eq("job_id", job.id).eq("reviewer_id", session.userId).maybeSingle(),
     ]);
     const canCheckIn =
       !assignment.checked_in_at && !assignment.no_show && [...OPEN_STATUSES, "in_progress"].includes(job.status);
@@ -474,6 +531,12 @@ async function HelperPanel({ job, session }: { job: Job; session: Session }) {
 
   if (job.status !== "open") return null;
   const helper = session.helper;
+  const { data: invite } = await supabase.from("job_invites").select("id").eq("job_id", job.id).maybeSingle();
+  const invited = invite ? (
+    <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
+      You&apos;re invited to apply for this job.
+    </p>
+  ) : null;
   if (helper?.suspended_at) {
     return <p className="card text-sm text-red-700">Your account is suspended after repeated no-shows.</p>;
   }
@@ -495,18 +558,92 @@ async function HelperPanel({ job, session }: { job: Job; session: Session }) {
     );
   }
   return (
-    <ActionForm action={applyToJob} fields={fields} label="Apply" variant="primary">
-      <label htmlFor="message" className="label">
-        Message to the poster <span className="font-normal text-slate-500">(optional)</span>
-      </label>
-      <textarea
-        id="message"
-        name="message"
-        rows={3}
-        maxLength={500}
-        className="input"
-        placeholder="I've done lots of apartment moves and I'm available all day."
-      />
-    </ActionForm>
+    <>
+      {invited}
+      <ActionForm action={applyToJob} fields={fields} label="Apply" variant="primary">
+        <label htmlFor="message" className="label">
+          Message to the poster <span className="font-normal text-slate-500">(optional)</span>
+        </label>
+        <textarea
+          id="message"
+          name="message"
+          rows={3}
+          maxLength={500}
+          className="input"
+          placeholder="I've done lots of apartment moves and I'm available all day."
+        />
+      </ActionForm>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Disputes, favorites, invites
+// ---------------------------------------------------------------------------
+
+function DisputeInfo({ job }: { job: Job }) {
+  if (job.status === "disputed") {
+    return (
+      <div className="card space-y-1 border-red-200 text-sm">
+        <p className="font-semibold text-red-700">Problem reported · under review</p>
+        {job.dispute_reason && <p className="whitespace-pre-line text-slate-700">{job.dispute_reason}</p>}
+        <p className="text-xs text-slate-500">Payment is on hold until our team decides.</p>
+      </div>
+    );
+  }
+  if (!job.dispute_resolution) return null;
+  return (
+    <div className="card space-y-1 text-sm">
+      <p className="font-semibold">
+        {job.dispute_resolution === "released"
+          ? "Problem reviewed · payment released to the crew"
+          : "Problem reviewed · payment refunded to the poster"}
+      </p>
+      {job.dispute_note && <p className="text-slate-600">{job.dispute_note}</p>}
+    </div>
+  );
+}
+
+type Favorite = { helper_id: string; helper: { profile: { full_name: string } | null } | null };
+
+async function loadFavorites(companyId: string): Promise<Favorite[]> {
+  const { data } = await createClient()
+    .from("favorite_helpers")
+    .select("helper_id, helper:helper_profiles(profile:profiles(full_name))")
+    .eq("company_id", companyId);
+  return (data ?? []) as unknown as Favorite[];
+}
+
+async function InvitePanel({ jobId, favorites }: { jobId: string; favorites: Favorite[] }) {
+  const { data } = await createClient().from("job_invites").select("helper_id").eq("job_id", jobId);
+  const invited = new Set((data ?? []).map((i) => i.helper_id as string));
+  return (
+    <section className="space-y-2">
+      <h2 className="font-semibold">Invite your favorites</h2>
+      {favorites.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          Add helpers to your{" "}
+          <Link href="/favorites" className="underline">
+            favorites
+          </Link>{" "}
+          after a shift to invite them again.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {favorites.map((f) => (
+            <li key={f.helper_id} className="card flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium">{f.helper?.profile?.full_name ?? "Helper"}</span>
+              {invited.has(f.helper_id) ? (
+                <span className="text-slate-500">Invited</span>
+              ) : (
+                <div className="w-28">
+                  <ActionForm action={inviteHelper} fields={{ job_id: jobId, helper_id: f.helper_id }} label="Invite" />
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

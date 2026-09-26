@@ -31,6 +31,7 @@ export default async function NewJobPage() {
         feePercent={feePercent}
         maxHelpers={profile.role === "customer" ? 4 : 10}
         outOfStateMessage={outOfStateMessage(allowed)}
+        allowRepeat={profile.role === "company"}
       />
     </div>
   );

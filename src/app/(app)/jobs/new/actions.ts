@@ -23,7 +23,10 @@ const JobSchema = z.object({
   start_session: z.string().optional(),
   end_place_id: z.string().optional(),
   end_session: z.string().optional(),
-  scheduled_start: z.iso.datetime({ offset: true, message: "Pick a date and start time." }),
+  scheduled_start: z.iso.datetime({
+    offset: true,
+    message: "Pick a date and start time.",
+  }),
   estimated_hours: z.coerce
     .number()
     .min(1, "Jobs are at least 1 hour.")
@@ -33,7 +36,10 @@ const JobSchema = z.object({
   pay_rate: z.string().transform((v, ctx) => {
     const cents = dollarsToCents(v);
     if (cents === null || cents < 1500 || cents > 20000) {
-      ctx.addIssue({ code: "custom", message: "Pay rate must be between $15 and $200 per hour." });
+      ctx.addIssue({
+        code: "custom",
+        message: "Pay rate must be between $15 and $200 per hour.",
+      });
       return z.NEVER;
     }
     return cents;
@@ -45,6 +51,7 @@ const JobSchema = z.object({
   description: z.string().trim().max(2000).optional(),
   has_stairs: checkbox,
   has_heavy_items: checkbox,
+  repeat_weeks: z.coerce.number().int().min(1).max(8).default(1),
   attest_labor_only: z.literal("on", {
     message: "Please confirm you're providing your own truck or container.",
   }),
@@ -66,6 +73,7 @@ export async function postJob(_prev: PostJobState, formData: FormData): Promise<
   const input = parsed.data;
 
   const maxHelpers = role === "customer" ? 4 : 10;
+  if (input.repeat_weeks > 1 && role !== "company") return { error: "Repeating shifts are for companies." };
   if (input.helpers_needed > maxHelpers) return { error: `You can book up to ${maxHelpers} helpers per job.` };
 
   const start = new Date(input.scheduled_start);
@@ -82,7 +90,9 @@ export async function postJob(_prev: PostJobState, formData: FormData): Promise<
     if (input.end_place_id) endPlace = await resolvePlace(input.end_place_id, input.end_session);
   } catch (err) {
     console.error(err);
-    return { error: "We couldn't verify the addresses. Please pick them again." };
+    return {
+      error: "We couldn't verify the addresses. Please pick them again.",
+    };
   }
   const allowed = await getAllowedStates();
   const location = validateJobLocation(
@@ -95,45 +105,51 @@ export async function postJob(_prev: PostJobState, formData: FormData): Promise<
   );
   if (!location.ok) return { error: location.error };
 
+  // A weekly series is one draft job per week, paid for in one checkout.
+  const seriesId = input.repeat_weeks > 1 ? crypto.randomUUID() : null;
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
   const supabase = createClient();
   const { data, error } = await supabase
     .from("jobs")
-    .insert({
-      poster_id: session.userId,
-      title: input.title,
-      description: input.description || null,
-      job_type: input.job_type,
-      start_address: startPlace.formattedAddress,
-      start_state: startPlace.state,
-      start_lat: startPlace.lat,
-      start_lng: startPlace.lng,
-      end_address: endPlace?.formattedAddress ?? null,
-      end_state: endPlace?.state ?? null,
-      end_lat: endPlace?.lat ?? null,
-      end_lng: endPlace?.lng ?? null,
-      scheduled_start: start.toISOString(),
-      estimated_hours: input.estimated_hours,
-      helpers_needed: input.helpers_needed,
-      pay_rate_cents: input.pay_rate,
-      has_stairs: input.has_stairs,
-      has_heavy_items: input.has_heavy_items,
-      truck_provided_by_customer: true,
-      customer_attested_labor_only: true,
-      status: "draft", // opens when the Stripe webhook confirms payment
-    })
-    .select("id")
-    .single();
-  if (error || !data) {
+    .insert(
+      Array.from({ length: input.repeat_weeks }, (_, week) => ({
+        poster_id: session.userId,
+        series_id: seriesId,
+        title: input.title,
+        description: input.description || null,
+        job_type: input.job_type,
+        start_address: startPlace.formattedAddress,
+        start_state: startPlace.state,
+        start_lat: startPlace.lat,
+        start_lng: startPlace.lng,
+        end_address: endPlace?.formattedAddress ?? null,
+        end_state: endPlace?.state ?? null,
+        end_lat: endPlace?.lat ?? null,
+        end_lng: endPlace?.lng ?? null,
+        scheduled_start: new Date(start.getTime() + week * WEEK).toISOString(),
+        estimated_hours: input.estimated_hours,
+        helpers_needed: input.helpers_needed,
+        pay_rate_cents: input.pay_rate,
+        has_stairs: input.has_stairs,
+        has_heavy_items: input.has_heavy_items,
+        truck_provided_by_customer: true,
+        customer_attested_labor_only: true,
+        status: "draft", // opens when the Stripe webhook confirms payment
+      })),
+    )
+    .select("id");
+  if (error || !data?.length) {
     console.error(error);
     return { error: "Could not post your job. Please try again." };
   }
 
+  const ids = data.map((j) => j.id as string);
   let checkoutUrl: string;
   try {
-    checkoutUrl = await createJobCheckout(data.id, session.userId, session.email);
+    checkoutUrl = await createJobCheckout(ids, session.userId, session.email);
   } catch (err) {
     if (!(err instanceof PaymentsUnavailableError)) console.error(err);
-    redirect(`/jobs/${data.id}`); // saved as a draft; the job page offers to pay again
+    redirect(ids.length === 1 ? `/jobs/${ids[0]}` : "/jobs"); // saved as drafts; pay from the job page
   }
   redirect(checkoutUrl);
 }

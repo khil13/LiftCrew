@@ -6,14 +6,14 @@ import { TIME_ZONE, dollarsToCents, formatCents, formatHours, formatJobTime } fr
 import { createClient } from "@/lib/supabase/server";
 import type { ApplicationStatus, FeedJob, Job } from "@/lib/types";
 
-type SearchParams = { view?: string; miles?: string; date?: string; min_pay?: string; type?: string };
+type SearchParams = { view?: string; miles?: string; date?: string; min_pay?: string; type?: string; paid?: string };
 
 export default async function JobsPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await requireOnboarded();
   if (session.profile.role === "helper") {
     return searchParams.view === "mine" ? <HelperMyJobs session={session} /> : <HelperFeed searchParams={searchParams} />;
   }
-  return <PosterJobs session={session} />;
+  return <PosterJobs session={session} paid={Boolean(searchParams.paid)} />;
 }
 
 function HelperTabs({ active }: { active: "find" | "mine" }) {
@@ -181,15 +181,15 @@ async function HelperMyJobs({ session }: { session: Session }) {
   );
 }
 
-type PostedJob = Pick<Job, "id" | "title" | "scheduled_start" | "helpers_needed" | "status"> & {
+type PostedJob = Pick<Job, "id" | "title" | "scheduled_start" | "helpers_needed" | "status" | "series_id"> & {
   applications: { status: ApplicationStatus }[];
 };
 
-async function PosterJobs({ session }: { session: Session }) {
+async function PosterJobs({ session, paid }: { session: Session; paid: boolean }) {
   const supabase = createClient();
   const { data } = await supabase
     .from("jobs")
-    .select("id, title, scheduled_start, helpers_needed, status, applications:job_applications(status)")
+    .select("id, title, scheduled_start, helpers_needed, status, series_id, applications:job_applications(status)")
     .eq("poster_id", session.userId)
     .order("scheduled_start", { ascending: false });
   const jobs = (data ?? []) as unknown as PostedJob[];
@@ -206,6 +206,17 @@ async function PosterJobs({ session }: { session: Session }) {
           </Link>
         )}
       </div>
+      {paid && (
+        <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
+          Payment received. Your shifts go live as soon as Stripe confirms it. Refresh to check.
+        </p>
+      )}
+      {isCompany && (
+        <div className="flex gap-4 text-sm font-semibold text-brand-600">
+          <Link href="/favorites">Favorite helpers</Link>
+          <Link href="/billing">Billing</Link>
+        </div>
+      )}
       {!canPost && (
         <p className="card text-sm text-amber-700">You can post shifts once your company is approved.</p>
       )}
@@ -225,7 +236,10 @@ async function PosterJobs({ session }: { session: Session }) {
                     <p className="font-semibold">{j.title}</p>
                     <JobStatusBadge status={j.status} />
                   </div>
-                  <p className="text-slate-600">{formatJobTime(j.scheduled_start)}</p>
+                  <p className="text-slate-600">
+                    {formatJobTime(j.scheduled_start)}
+                    {j.series_id && <span className="ml-1 text-xs font-medium text-brand-600">· Weekly</span>}
+                  </p>
                   <p className="text-slate-600">
                     {booked} of {j.helpers_needed} booked
                     {j.status === "open" && pending > 0 && (

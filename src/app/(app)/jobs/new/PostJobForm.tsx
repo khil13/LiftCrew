@@ -22,10 +22,13 @@ export default function PostJobForm({
   feePercent,
   maxHelpers,
   outOfStateMessage,
+  allowRepeat = false,
 }: {
   feePercent: number;
   maxHelpers: number;
   outOfStateMessage: string;
+  /** Companies can post the same shift every week. */
+  allowRepeat?: boolean;
 }) {
   const [state, action] = useFormState(postJob, {});
   const [step, setStep] = useState(0);
@@ -41,6 +44,7 @@ export default function PostJobForm({
   const [types, setTypes] = useState<JobType[]>(["loading"]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [weeks, setWeeks] = useState("1");
 
   const scheduledIso = localStart ? new Date(localStart).toISOString() : "";
   const rateCents = dollarsToCents(rate);
@@ -127,6 +131,28 @@ export default function PostJobForm({
           onChange={(e) => setLocalStart(e.target.value)}
         />
         <input type="hidden" name="scheduled_start" value={scheduledIso} />
+        {allowRepeat && (
+          <div className="pt-2">
+            <label htmlFor="repeat_weeks" className="label">
+              Repeat weekly
+            </label>
+            <select
+              id="repeat_weeks"
+              name="repeat_weeks"
+              className="input"
+              value={weeks}
+              onChange={(e) => setWeeks(e.target.value)}
+            >
+              <option value="1">Just this once</option>
+              {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                <option key={n} value={n}>
+                  Every week for {n} weeks
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">Each week is its own shift, with its own crew.</p>
+          </div>
+        )}
       </div>
 
       <div className={step === 2 ? "space-y-4" : "hidden"}>
@@ -256,9 +282,15 @@ export default function PostJobForm({
               <dd>{formatCents(estimate.feeCents)}</dd>
             </div>
             <div className="flex justify-between border-t border-slate-200 pt-2 font-semibold">
-              <dt>Estimated total</dt>
+              <dt>{weeks === "1" ? "Estimated total" : "Per shift"}</dt>
               <dd>{formatCents(estimate.totalCents)}</dd>
             </div>
+            {weeks !== "1" && (
+              <div className="flex justify-between font-semibold">
+                <dt>Total for {weeks} weekly shifts</dt>
+                <dd>{formatCents(estimate.totalCents * Number(weeks))}</dd>
+              </div>
+            )}
           </dl>
         )}
         <p className="text-xs text-slate-500">

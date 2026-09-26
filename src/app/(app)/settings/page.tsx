@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PushToggle from "@/components/PushToggle";
 import { requireOnboarded } from "@/lib/auth";
 
 export default async function SettingsPage() {
@@ -22,11 +23,22 @@ export default async function SettingsPage() {
           </div>
         )}
         {profile.role === "company" && (
-          <Link href="/onboarding/company" className="inline-block pt-1 font-semibold text-brand-600">
-            Edit company details
+          <div className="flex flex-wrap gap-4 pt-1">
+            <Link href="/onboarding/company" className="font-semibold text-brand-600">
+              Edit company details
+            </Link>
+            <Link href="/favorites" className="font-semibold text-brand-600">
+              Favorite helpers
+            </Link>
+          </div>
+        )}
+        {(profile.role === "customer" || profile.role === "company") && (
+          <Link href="/billing" className="inline-block pt-1 font-semibold text-brand-600">
+            Billing history
           </Link>
         )}
       </div>
+      <PushToggle />
       <Link href="/terms" className="card block text-sm font-medium">
         Terms of Service
       </Link>

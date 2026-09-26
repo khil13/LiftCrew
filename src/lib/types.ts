@@ -62,6 +62,10 @@ export type Job = {
   created_at: string;
   cancelled_at: string | null;
   completed_at: string | null;
+  series_id: string | null;
+  dispute_reason: string | null;
+  dispute_resolution: "released" | "refunded" | null;
+  dispute_note: string | null;
 };
 
 export type ApplicationStatus = "applied" | "accepted" | "declined" | "withdrawn";

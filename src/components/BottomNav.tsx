@@ -10,13 +10,16 @@ const ICONS: Record<string, string> = {
   messages: "M4 5h16v11H8l-4 4z",
   notifications: "M6 16V11a6 6 0 1 1 12 0v5l2 2H4zM10 20h4",
   settings: "M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zM4 12h2M18 12h2M12 4v2M12 18v2",
+  admin: "M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z",
 };
 
 export default function BottomNav({ role, unread = 0 }: { role: UserRole; unread?: number }) {
   const pathname = usePathname();
   const tabs = [
     { href: "/home", label: "Home", icon: "home" },
-    { href: "/jobs", label: role === "helper" ? "Find jobs" : "My jobs", icon: "jobs" },
+    role === "admin"
+      ? { href: "/admin", label: "Admin", icon: "admin" }
+      : { href: "/jobs", label: role === "helper" ? "Find jobs" : "My jobs", icon: "jobs" },
     { href: "/messages", label: "Messages", icon: "messages" },
     { href: "/notifications", label: "Alerts", icon: "notifications" },
     { href: "/settings", label: "Settings", icon: "settings" },

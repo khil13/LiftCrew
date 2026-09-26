@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { estimateJobPrice } from "@/lib/pricing";
+import { formatCents, formatJobTime } from "@/lib/format";
 import { SITE_URL, notifyUser } from "@/lib/notify";
 import {
   cancellationSettlement,
@@ -44,6 +45,7 @@ type JobRow = {
   helpers_needed: number;
   pay_rate_cents: number;
   cancelled_at: string | null;
+  dispute_resolution: string | null;
 };
 
 type PaymentRow = {
@@ -67,137 +69,136 @@ async function readSetting<T>(admin: ReturnType<typeof clients>["admin"], key: s
 // 1. Pay at booking
 // ---------------------------------------------------------------------------
 
-/** Creates a Checkout Session for a draft job and returns its URL. */
-export async function createJobCheckout(jobId: string, posterId: string, posterEmail: string | null): Promise<string> {
+/**
+ * Creates one Checkout Session for one or more draft jobs from the same poster
+ * (a weekly shift series is paid in one go) and returns its URL.
+ */
+export async function createJobCheckout(
+  jobIds: string | string[],
+  posterId: string,
+  posterEmail: string | null,
+): Promise<string> {
   const { stripe, admin } = clients();
-  const { data: job } = await admin.from("jobs").select("*").eq("id", jobId).single<JobRow>();
-  if (!job || job.poster_id !== posterId) throw new Error("Job not found");
-  if (job.status !== "draft") throw new Error("This job is already paid for.");
-  if (new Date(job.scheduled_start).getTime() < Date.now() + 60 * 60 * 1000) {
+  const ids = Array.isArray(jobIds) ? jobIds : [jobIds];
+  const { data } = await admin.from("jobs").select("*").in("id", ids).order("scheduled_start");
+  const jobs = (data ?? []) as JobRow[];
+  if (jobs.length !== ids.length || jobs.some((j) => j.poster_id !== posterId)) throw new Error("Job not found");
+  if (jobs.some((j) => j.status !== "draft")) throw new Error("This job is already paid for.");
+  if (jobs.some((j) => new Date(j.scheduled_start).getTime() < Date.now() + 60 * 60 * 1000)) {
     throw new Error("This job starts too soon to book. Post a new job with a later start time.");
   }
 
   const feePercent = Number((await readSetting<number>(admin, "platform_fee_percent")) ?? 15);
-  const estimate = estimateJobPrice({
-    helpers: job.helpers_needed,
-    hours: Number(job.estimated_hours),
-    rateCents: job.pay_rate_cents,
-    feePercent,
-  });
-
-  const { data: existing } = await admin.from("payments").select("*").eq("job_id", job.id).maybeSingle<PaymentRow>();
-  if (existing && existing.status !== "pending" && existing.status !== "failed") {
+  const { data: existingRows } = await admin.from("payments").select("*").in("job_id", ids);
+  const existing = new Map(((existingRows ?? []) as PaymentRow[]).map((p) => [p.job_id, p]));
+  if ([...existing.values()].some((p) => p.status !== "pending" && p.status !== "failed")) {
     throw new Error("This job is already paid for.");
   }
-  const paymentFields = {
-    job_id: job.id,
-    payer_id: posterId,
-    amount_cents: estimate.totalCents,
-    platform_fee_cents: estimate.feeCents,
-    status: "pending",
-    updated_at: new Date().toISOString(),
-  };
-  const { data: payment, error } = existing
-    ? await admin.from("payments").update(paymentFields).eq("id", existing.id).select("id").single()
-    : await admin.from("payments").insert(paymentFields).select("id").single();
-  if (error || !payment) throw new Error("Could not start checkout.");
 
+  const lines: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+  const paymentIds: string[] = [];
+  for (const job of jobs) {
+    const estimate = estimateJobPrice({
+      helpers: job.helpers_needed,
+      hours: Number(job.estimated_hours),
+      rateCents: job.pay_rate_cents,
+      feePercent,
+    });
+    const fields = {
+      job_id: job.id,
+      payer_id: posterId,
+      amount_cents: estimate.totalCents,
+      platform_fee_cents: estimate.feeCents,
+      status: "pending",
+      updated_at: new Date().toISOString(),
+    };
+    const prior = existing.get(job.id);
+    const { data: payment, error } = prior
+      ? await admin.from("payments").update(fields).eq("id", prior.id).select("id").single()
+      : await admin.from("payments").insert(fields).select("id").single();
+    if (error || !payment) throw new Error("Could not start checkout.");
+    paymentIds.push(payment.id);
+    lines.push({
+      quantity: 1,
+      price_data: {
+        currency: "usd",
+        unit_amount: estimate.totalCents,
+        product_data: {
+          name: `${job.title} · ${formatJobTime(job.scheduled_start)}`,
+          description:
+            `${job.helpers_needed} helper(s) × ${Number(job.estimated_hours)} hrs × ${formatCents(job.pay_rate_cents)}` +
+            ` + ${feePercent}% service fee. Labor only; no transport.`,
+        },
+      },
+    });
+  }
+
+  const single = jobs.length === 1;
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     customer_email: posterEmail ?? undefined,
-    client_reference_id: job.id,
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: "usd",
-          unit_amount: estimate.laborCents,
-          product_data: {
-            name: `Moving labor: ${job.title}`,
-            description: `${job.helpers_needed} helper(s) × ${Number(job.estimated_hours)} hrs. Labor only; no transport.`,
-          },
-        },
-      },
-      {
-        quantity: 1,
-        price_data: {
-          currency: "usd",
-          unit_amount: estimate.feeCents,
-          product_data: { name: `LiftCrew service fee (${feePercent}%)` },
-        },
-      },
-    ],
-    metadata: { job_id: job.id, payment_id: payment.id },
-    payment_intent_data: { transfer_group: job.id, metadata: { job_id: job.id, payment_id: payment.id } },
-    success_url: `${SITE_URL}/jobs/${job.id}?paid=1`,
-    cancel_url: `${SITE_URL}/jobs/${job.id}`,
+    client_reference_id: jobs[0].id,
+    line_items: lines,
+    metadata: { job_count: String(jobs.length) },
+    payment_intent_data: { transfer_group: single ? jobs[0].id : `series-${jobs[0].id}` },
+    success_url: single ? `${SITE_URL}/jobs/${jobs[0].id}?paid=1` : `${SITE_URL}/jobs?paid=1`,
+    cancel_url: single ? `${SITE_URL}/jobs/${jobs[0].id}` : `${SITE_URL}/jobs`,
   });
-  await admin.from("payments").update({ stripe_checkout_session_id: session.id }).eq("id", payment.id);
+  await admin.from("payments").update({ stripe_checkout_session_id: session.id }).in("id", paymentIds);
   if (!session.url) throw new Error("Could not start checkout.");
   return session.url;
 }
 
-/** Webhook: checkout.session.completed. Holds the funds and opens the job. */
+/**
+ * Webhook: checkout.session.completed. Holds the funds and opens each job the
+ * session paid for. Jobs that can no longer be booked are refunded their share.
+ */
 export async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
   const { stripe, admin } = clients();
   if (session.payment_status !== "paid" || typeof session.payment_intent !== "string") return;
-  const paymentId = session.metadata?.payment_id;
-  const jobId = session.metadata?.job_id;
-  if (!paymentId || !jobId) return;
 
-  const [{ data: payment }, { data: job }, intent] = await Promise.all([
-    admin.from("payments").select("*").eq("id", paymentId).single<PaymentRow>(),
-    admin.from("jobs").select("*").eq("id", jobId).single<JobRow>(),
+  const [{ data: rows }, intent] = await Promise.all([
+    admin.from("payments").select("*").eq("stripe_checkout_session_id", session.id),
     stripe.paymentIntents.retrieve(session.payment_intent),
   ]);
-  if (!payment || !job) return;
-  if (payment.stripe_payment_intent_id === intent.id) return; // already processed
+  const payments = (rows ?? []) as PaymentRow[];
 
-  const refundInFull = async (reason: string) => {
-    await stripe.refunds.create(
-      { payment_intent: intent.id },
-      { idempotencyKey: `refund-full-${intent.id}` },
-    );
-    console.warn(`Refunded checkout ${session.id}: ${reason}`);
-  };
-
-  // A second or stale checkout for the same job: give the money back.
-  if (payment.status !== "pending" || payment.stripe_checkout_session_id !== session.id) {
-    await refundInFull("duplicate or superseded checkout");
+  // A stale checkout (the poster started a newer one, or discarded the job): give the money back.
+  if (payments.length === 0) {
+    await stripe.refunds.create({ payment_intent: intent.id }, { idempotencyKey: `refund-full-${intent.id}` });
+    console.warn(`Refunded superseded checkout ${session.id}`);
     return;
   }
+
   const chargeId = typeof intent.latest_charge === "string" ? intent.latest_charge : (intent.latest_charge?.id ?? null);
+  const stripeIds = { stripe_payment_intent_id: intent.id, stripe_charge_id: chargeId };
 
-  // Paid too late (job cancelled meanwhile or already started): refund.
-  if (job.status !== "draft" || new Date(job.scheduled_start).getTime() <= Date.now()) {
-    await refundInFull("job no longer bookable");
-    await admin
+  for (const payment of payments) {
+    if (payment.stripe_payment_intent_id === intent.id) continue; // already processed
+    const { data: job } = await admin.from("jobs").select("*").eq("id", payment.job_id).single<JobRow>();
+    const bookable =
+      payment.status === "pending" && job?.status === "draft" && new Date(job.scheduled_start).getTime() > Date.now();
+
+    if (!bookable) {
+      await stripe.refunds.create(
+        { payment_intent: intent.id, amount: payment.amount_cents },
+        { idempotencyKey: `refund-unbookable-${payment.id}-${intent.id}` },
+      );
+      await admin
+        .from("payments")
+        .update({ ...stripeIds, status: "refunded", refunded_cents: payment.amount_cents, updated_at: new Date().toISOString() })
+        .eq("id", payment.id);
+      continue;
+    }
+
+    const { data: held } = await admin
       .from("payments")
-      .update({
-        status: "refunded",
-        refunded_cents: session.amount_total ?? payment.amount_cents,
-        stripe_payment_intent_id: intent.id,
-        stripe_charge_id: chargeId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", payment.id);
-    return;
+      .update({ ...stripeIds, status: "held", updated_at: new Date().toISOString() })
+      .eq("id", payment.id)
+      .eq("status", "pending")
+      .select("id");
+    if (held?.length) await admin.from("jobs").update({ status: "open" }).eq("id", payment.job_id).eq("status", "draft");
   }
-
-  const { data: held } = await admin
-    .from("payments")
-    .update({
-      status: "held",
-      amount_cents: session.amount_total ?? payment.amount_cents,
-      stripe_payment_intent_id: intent.id,
-      stripe_charge_id: chargeId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", payment.id)
-    .eq("status", "pending")
-    .select("id");
-  if (!held?.length) return;
-  await admin.from("jobs").update({ status: "open" }).eq("id", job.id).eq("status", "draft");
 }
 
 /** Webhook: checkout.session.expired. */
@@ -235,6 +236,8 @@ export async function settleJob(jobId: string): Promise<void> {
   let settlement: Settlement;
   if (job.status === "completed") {
     settlement = completionSettlement(charge, rates, crew);
+  } else if (job.status === "cancelled" && job.dispute_resolution === "refunded") {
+    settlement = { payouts: [], retainedFeeCents: 0, refundCents: charge.amountCents }; // admin refunded a dispute
   } else if (job.status === "cancelled") {
     const policy = (await readSetting<CancellationPolicy>(admin, "cancellation_policy")) ?? {
       full_refund_hours_before: 24,
@@ -247,7 +250,7 @@ export async function settleJob(jobId: string): Promise<void> {
       policy,
     );
   } else {
-    return; // still running, or disputed (admin decides)
+    return; // still running, or disputed (an admin decides)
   }
 
   if (settlement.payouts.length > 0) {

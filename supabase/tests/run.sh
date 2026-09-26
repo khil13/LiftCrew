@@ -24,8 +24,10 @@ H=22222222-2222-2222-2222-222222222222   # helper
 CO=33333333-3333-3333-3333-333333333333  # company
 X=44444444-4444-4444-4444-444444444444   # would-be admin
 H2=55555555-5555-5555-5555-555555555555  # second helper
+A=66666666-6666-6666-6666-666666666666   # admin
 $P -c "update app_settings set value = '[\"NJ\"]' where key = 'allowed_states';
-       insert into auth.users values ('$C'), ('$H'), ('$CO'), ('$X'), ('$H2');" || exit 1
+       insert into auth.users values ('$C'), ('$H'), ('$CO'), ('$X'), ('$H2'), ('$A');
+       insert into profiles (id, role, full_name) values ('$A', 'admin', 'Ada Admin');  -- admins are set up in SQL" || exit 1
 
 failures=0
 
@@ -228,7 +230,9 @@ check $H2 fail "no-show cannot check in"           "select check_in('$J4')"
 check $C  ok   "post another job"                  "$GEO values ('$J5', '$C', 'Later job', '{loading}', 'Newark', 'NJ', 40.7357, -74.1724, now() + interval '2 days', 2, 1, 3000, true)"
 $P -c "update jobs set status = 'open' where id = '$J5'" >/dev/null
 check $H2 fail "suspended helper cannot apply"     "insert into job_applications (job_id, helper_id) values ('$J5', '$H2')"
-check $C  ok   "poster disputes job in progress"   "select set_job_status('$J4', 'disputed')"
+check $C  fail "dispute needs a reason"            "select open_dispute('$J4', 'bad')"
+check $C  fail "cannot dispute via status change"  "select set_job_status('$J4', 'disputed')"
+check $C  ok   "poster disputes job in progress"   "select open_dispute('$J4', 'Helper 2 never came and we ran 2 hours over')"
 check $C  fail "cannot complete a disputed job"    "select set_job_status('$J4', 'completed')"
 
 check $H  ok   "helper applies to later job"       "insert into job_applications (job_id, helper_id) values ('$J5', '$H')"
@@ -242,6 +246,46 @@ check $C  fail "non-admin cannot verify helpers"   "select admin_set_helper_veri
 check $CO fail "non-admin cannot approve companies" "select admin_set_company_approved('$CO', true)"
 check $C  fail "customers cannot write payments"   "insert into payments (job_id, payer_id, amount_cents, platform_fee_cents) values ('$J3', '$C', 1, 0)"
 check $H  fail "helpers cannot write payouts"      "insert into payouts (helper_id, amount_cents) values ('$H', 100000)"
+
+# ---------------------------------------------------------------------------
+# Phase 4: favorites, invites, admin tools, push subscriptions
+# ---------------------------------------------------------------------------
+check $A  ok   "admin approves company"            "select admin_set_company_approved('$CO', true)"
+check $A  ok   "admin verifies helper"             "select admin_set_helper_verified('$H', true)"
+expect "helper shows as verified"            "$(q $C "select is_verified from helper_profiles where id = '$H'")" "t"
+
+J6=aaaaaaaa-0000-0000-0000-000000000006
+check $CO ok   "approved company posts a shift"    "$GEO values ('$J6', '$CO', 'Warehouse shift', '{loading}', 'Newark', 'NJ', 40.7357, -74.1724, now() + interval '5 days', 4, 2, 3200, true)"
+$P -c "update jobs set status = 'open' where id = '$J6'" >/dev/null
+check $C  fail "customers cannot keep favorites"   "insert into favorite_helpers (company_id, helper_id) values ('$C', '$H')"
+check $CO ok   "company favorites a helper"        "insert into favorite_helpers (company_id, helper_id) values ('$CO', '$H')"
+check $CO fail "cannot invite a non-favorite"      "select invite_helper('$J6', '$H2')"
+check $C  fail "cannot invite to someone else's job" "select invite_helper('$J6', '$H')"
+check $CO ok   "company invites favorite"          "select invite_helper('$J6', '$H')"
+check $CO fail "cannot invite twice"               "select invite_helper('$J6', '$H')"
+expect "helper sees the invite"              "$(q $H "select count(*) from job_invites where job_id = '$J6'")" "1"
+expect "helper notified of invite"           "$(q $H "select count(*) from notifications where kind = 'job_invite'")" "1"
+expect "others cannot see invites"           "$(q $H2 "select count(*) from job_invites")" "0"
+check $H  fail "invites are not writable directly" "insert into job_invites (job_id, helper_id) values ('$J6', '$H2')"
+
+expect "admin notified of dispute"           "$(q $A "select count(*) from notifications where kind = 'dispute_opened'")" "1"
+check $C  fail "poster cannot resolve disputes"    "select admin_resolve_dispute('$J4', 'released')"
+check $A  ok   "admin refunds disputed job"        "select admin_resolve_dispute('$J4', 'refunded', 'Crew was short')"
+expect "refunded dispute is cancelled"       "$(q $C "select status || '/' || dispute_resolution from jobs where id = '$J4'")" "cancelled/refunded"
+check $A  fail "cannot resolve twice"              "select admin_resolve_dispute('$J4', 'released')"
+
+check $C  fail "customers cannot read metrics"     "select admin_metrics()"
+expect "admin metrics count open flags"      "$(q $A "select (admin_metrics() ->> 'flags_open')::int >= 1")" "t"
+expect "admin lists helpers with strikes"    "$(q $A "select strikes from admin_list_helpers() where id = '$H2'")" "3"
+check $C  fail "customers cannot list helpers"     "select admin_list_helpers()"
+check $A  ok   "admin lifts suspension"            "select admin_set_helper_suspended('$H2', false)"
+expect "suspension lifted, strikes reset"    "$(q $H2 "select strikes || ',' || (suspended_at is null) from get_my_helper_profile()")" "0,true"
+check $A  ok   "admin resolves a flag"             "update content_flags set resolved_at = now(), resolved_by = '$A' where resolved_at is null"
+check $A  ok   "admin changes the platform fee"    "do \$\$ declare n int; begin update app_settings set value = '12' where key = 'platform_fee_percent'; get diagnostics n = row_count; if n = 0 then raise exception 'no rows'; end if; end \$\$"
+
+check $H  ok   "helper saves push subscription"    "insert into push_subscriptions (profile_id, endpoint, p256dh, auth) values ('$H', 'https://push.example/1', 'k', 'a')"
+check $H  fail "cannot save push for someone else" "insert into push_subscriptions (profile_id, endpoint, p256dh, auth) values ('$C', 'https://push.example/2', 'k', 'a')"
+expect "push subscriptions are private"      "$(q $C "select count(*) from push_subscriptions")" "0"
 
 echo
 if [ $failures -eq 0 ]; then echo "All DB checks passed"; else echo "$failures DB check(s) failed"; exit 1; fi

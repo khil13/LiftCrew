@@ -105,11 +105,11 @@ and checks the compliance rules and RLS.
 
 ### Phase 4 — Company tools & admin (week 7–8)
 
-- [ ] Favorite helpers + direct invites
-- [ ] Recurring shifts
-- [ ] Admin dashboard (incl. moderation review queue from `content_flags`)
-- [ ] Dispute handling
-- [ ] PWA install prompt + push notifications
+- [x] Favorite helpers + direct invites
+- [x] Recurring shifts (repeat weekly for up to 8 weeks, one checkout)
+- [x] Admin dashboard: metrics, company approval, helper verification and suspensions, moderation queue, platform fee
+- [x] Dispute handling (poster gives a reason; admin releases to crew or refunds in full)
+- [x] PWA install prompt + push notifications (Web Push with VAPID keys)
 
 ### Phase 5 — Launch
 
@@ -209,3 +209,11 @@ Decisions made while building that go beyond the original plan:
 - **Hours.** Helpers are paid the booked hours. Checked-in/out hours are recorded for the poster and for disputes, not used for pay yet.
 - **Hourly cron** (`/api/cron`, `vercel.json`): auto-confirms jobs 48 hours after their scheduled end, settles anything still held, retries payouts, and sends day-before reminders. Vercel's Hobby plan only runs crons once a day; Pro runs it hourly.
 - **Idempotency.** Every Stripe call has an idempotency key and every DB write checks the row's current status, so the webhook, actions, and cron can overlap safely.
+
+## 13. Implementation notes (Phase 4)
+
+- **Admins** are created in SQL, never through the app: `update profiles set role = 'admin' where id = '<user id>';`. They get an Admin tab with metrics (jobs posted, fill rate, GMV, fees), company approvals, helper verification and suspensions, disputes, the moderation queue, and the platform fee. Changing the allowed states stays a SQL-only operation because it affects compliance.
+- **Disputes.** The poster must describe the problem. Admins see the reason and each helper's check-in/out record, then either release payment to the crew (no-shows excluded) or refund the poster in full. Both sides are notified.
+- **Favorites and invites** are for companies. Invites go only to favorited helpers, show up in the helper's alerts (plus email, SMS, and push), and put a banner on the job. Invited helpers still apply normally, so every labor-only and payout check still applies.
+- **Weekly shifts.** A company can repeat a shift weekly for up to 8 weeks. Each week is its own job with its own crew, all paid in one Stripe Checkout; each shift settles and refunds on its own.
+- **PWA.** Manifest with icons, a service worker for install and push, an install banner (with iPhone instructions), and a push on/off toggle in Settings. Pushes go out wherever email/SMS notifications do.

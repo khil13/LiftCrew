@@ -46,7 +46,11 @@ Next.js 14 (App Router) · TypeScript · Tailwind · Supabase (Postgres, Auth, S
 
 8. SMS (optional): set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER` (a number or a Messaging Service SID). Texting US numbers from a long code requires A2P 10DLC registration.
 
-9. Run the app:
+9. Push notifications (optional): run `npx web-push generate-vapid-keys` and set `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` (a `mailto:` address).
+
+10. Make yourself an admin: sign up in the app, then run `update profiles set role = 'admin' where id = '<your user id>';` in the Supabase SQL editor.
+
+11. Run the app:
 
    ```sh
    npm run dev
