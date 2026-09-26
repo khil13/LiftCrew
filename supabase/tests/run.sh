@@ -62,7 +62,7 @@ check $H  fail "helper cannot self-verify"         "update helper_profiles set i
 # Private columns
 check $C  fail "other users' phone is private"     "select phone from profiles"
 check $C  fail "helper home location is private"   "select home_lat from helper_profiles"
-check $H  ok   "owner reads own phone via view"    "select phone from my_profile"
+check $H  ok   "owner reads own phone"             "select phone from get_my_profile()"
 
 # Jobs: same-state only (Rule 1)
 check $C  ok   "in-state job passes"               "$JOB values ('$C', 'Move', '{loading}', 'a', 'NJ', 'b', 'NJ', now(), 3, 2500, true)"
@@ -83,6 +83,7 @@ check $CO fail "unapproved company cannot post"    "$JOB values ('$CO', 'Shift',
 
 # Applications
 check $H  fail "cannot apply before labor terms"   "insert into job_applications (job_id, helper_id) select id, '$H' from jobs limit 1"
+check $C  fail "signed-out cannot call helpers"     "reset role; set local role anon; select is_admin()"
 check $H  ok   "helper agrees to labor-only terms" "update helper_profiles set agreed_labor_only_terms_at = now() where id = '$H'"
 check $H  ok   "helper applies after terms"        "insert into job_applications (job_id, helper_id) select id, '$H' from jobs limit 1"
 check $C  ok   "poster accepts application"        "update job_applications set status = 'accepted'"

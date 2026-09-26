@@ -21,12 +21,12 @@ export const getSession = cache(async (): Promise<Session | null> => {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: profile } = await supabase.from("my_profile").select("*").maybeSingle<Profile>();
+  const { data: profile } = await supabase.rpc("get_my_profile").maybeSingle<Profile>();
 
   let helper: HelperProfile | null = null;
   let company: Company | null = null;
   if (profile?.role === "helper") {
-    ({ data: helper } = await supabase.from("my_helper_profile").select("*").maybeSingle<HelperProfile>());
+    ({ data: helper } = await supabase.rpc("get_my_helper_profile").maybeSingle<HelperProfile>());
   } else if (profile?.role === "company") {
     ({ data: company } = await supabase.from("companies").select("*").eq("id", user.id).maybeSingle<Company>());
   }

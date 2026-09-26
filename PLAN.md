@@ -76,7 +76,7 @@ and checks the compliance rules and RLS.
 
 - [x] Scaffold Next.js + TypeScript + Tailwind project
 - [x] Set up Supabase schema migrations and RLS policies (`supabase/migrations/0001`–`0004`)
-- [ ] Create the Supabase project and apply the migrations (needs your Supabase account; see README)
+- [x] Create the Supabase project and apply the migrations (project `LiftCrew`, ref `iksscoylmloyojoetvvy`)
 - [x] Auth (email + phone OTP), role selection, profile creation
 - [x] Helper onboarding form (Stripe Connect step deferred to Phase 3)
 - [x] Customer/company onboarding (company approval-pending state)
@@ -181,7 +181,7 @@ UI, the API routes / server actions, and the database.
 
 Decisions made while building that go beyond the original plan:
 
-- **Private fields.** `profiles.phone`, `helper_profiles.home_lat/home_lng/stripe_account_id` are hidden from other users with column privileges. Owners read them through the `my_profile` / `my_helper_profile` views. Queries on those tables must list columns (no `select *`).
+- **Private fields.** `profiles.phone`, `helper_profiles.home_lat/home_lng/stripe_account_id` are hidden from other users with column privileges. Owners read them through the `get_my_profile()` / `get_my_helper_profile()` functions. Queries on those tables must list columns (no `select *`).
 - **Protected fields.** Users cannot set their own `role` after signup, pick `admin`, or change `is_verified`, `is_approved`, ratings, or Stripe status. Admin changes will go through server code in Phase 4.
 - **Helper home state.** Added `helper_profiles.home_state` (from Google Places) with a trigger that requires it to be an allowed state.
 - **Helper skills** are limited to the allowed job types, so no transport options can appear on a profile.

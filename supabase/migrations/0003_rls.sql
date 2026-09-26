@@ -6,7 +6,8 @@
 --
 -- Because of the column privileges, client queries on profiles and
 -- helper_profiles must list columns explicitly (no `select *`). Owners read
--- their own private fields through the my_profile / my_helper_profile views.
+-- their own private fields through get_my_profile() / get_my_helper_profile()
+-- (0005_hardening.sql).
 
 -- ---------------------------------------------------------------------------
 -- Helpers
