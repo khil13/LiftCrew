@@ -80,7 +80,12 @@ export async function createJobCheckout(
 ): Promise<string> {
   const { stripe, admin } = clients();
   const ids = Array.isArray(jobIds) ? jobIds : [jobIds];
-  const { data } = await admin.from("jobs").select("*").in("id", ids).order("scheduled_start");
+  const { data, error } = await admin.from("jobs").select("*").in("id", ids).order("scheduled_start");
+  if (error) {
+    // Usually a missing or mistyped SUPABASE_SERVICE_ROLE_KEY in the hosting settings.
+    console.error("Checkout: could not read jobs with the service-role key", error);
+    throw new Error("Payment setup problem. Please try again shortly.");
+  }
   const jobs = (data ?? []) as JobRow[];
   if (jobs.length !== ids.length || jobs.some((j) => j.poster_id !== posterId)) throw new Error("Job not found");
   if (jobs.some((j) => j.status !== "draft")) throw new Error("This job is already paid for.");

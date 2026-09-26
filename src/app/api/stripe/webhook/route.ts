@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
+import { envValue } from "@/lib/env";
 import { handleCheckoutCompleted, handleCheckoutExpired, syncConnectAccount } from "@/lib/payments";
 
 // Stripe events are the only way a job becomes paid (never a client callback).
@@ -10,7 +11,7 @@ import { handleCheckoutCompleted, handleCheckoutExpired, syncConnectAccount } fr
 // connected accounts (account.updated) signed with STRIPE_CONNECT_WEBHOOK_SECRET.
 export async function POST(request: NextRequest) {
   const stripe = getStripe();
-  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_CONNECT_WEBHOOK_SECRET].filter(
+  const secrets = [envValue("STRIPE_WEBHOOK_SECRET"), envValue("STRIPE_CONNECT_WEBHOOK_SECRET")].filter(
     (s): s is string => Boolean(s),
   );
   if (!stripe || secrets.length === 0) return NextResponse.json({ error: "Not configured" }, { status: 503 });
