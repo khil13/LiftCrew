@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import { getPaymentMode } from "@/lib/settings";
 
 export default async function LandingPage() {
   if (await getSession()) redirect("/home");
+  const offline = (await getPaymentMode()) === "offline";
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-10">
@@ -15,7 +17,11 @@ export default async function LandingPage() {
         </p>
         <ul className="mt-6 space-y-2 text-sm text-slate-700">
           <li>• Vetted helpers, rated by real customers</li>
-          <li>• Pay upfront, released only after the job is done</li>
+          <li>
+            {offline
+              ? "• Pay after the job: cash, Cash App, or Zelle"
+              : "• Pay upfront, released only after the job is done"}
+          </li>
           <li>• Moving companies: staff up for your busiest days</li>
         </ul>
       </div>

@@ -7,6 +7,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth";
 import { notifyUser } from "@/lib/notify";
+import { getPaymentMode } from "@/lib/settings";
 import { PaymentsUnavailableError, createJobCheckout, notifyCrew, settleJob } from "@/lib/payments";
 
 export type ActionState = { error?: string; ok?: boolean };
@@ -31,7 +32,9 @@ export async function applyToJob(_prev: ActionState, formData: FormData): Promis
   if (!jobId.success || !message.success) return { error: "Check your message and try again." };
   if (session.profile!.role !== "helper") return { error: "Only helpers can apply." };
   if (!session.helper?.agreed_labor_only_terms_at) return { error: "Agree to the labor-only terms in your profile first." };
-  if (!session.helper.stripe_onboarded) return { error: "Set up payouts before applying." };
+  if (!session.helper.stripe_onboarded && (await getPaymentMode()) === "stripe") {
+    return { error: "Set up payouts before applying." };
+  }
   if (session.helper.suspended_at) return { error: "Your account is suspended. Contact support." };
 
   const supabase = createClient();
@@ -159,6 +162,14 @@ export async function payForJob(_prev: ActionState, formData: FormData): Promise
   const session = await requireUser();
   const jobId = uuid.safeParse(formData.get("job_id"));
   if (!jobId.success) return { error: "Something went wrong." };
+
+  if ((await getPaymentMode()) === "offline") {
+    const { error } = await createClient().rpc("publish_job", { p_job_id: jobId.data });
+    if (error) return { error: friendly(error, "Could not publish this job.") };
+    revalidatePath(`/jobs/${jobId.data}`);
+    return { ok: true };
+  }
+
   let url: string;
   try {
     url = await createJobCheckout(jobId.data, session.userId, session.email);

@@ -217,3 +217,13 @@ Decisions made while building that go beyond the original plan:
 - **Favorites and invites** are for companies. Invites go only to favorited helpers, show up in the helper's alerts (plus email, SMS, and push), and put a banner on the job. Invited helpers still apply normally, so every labor-only and payout check still applies.
 - **Weekly shifts.** A company can repeat a shift weekly for up to 8 weeks. Each week is its own job with its own crew, all paid in one Stripe Checkout; each shift settles and refunds on its own.
 - **PWA.** Manifest with icons, a service worker for install and push, an install banner (with iPhone instructions), and a push on/off toggle in Settings. Pushes go out wherever email/SMS notifications do.
+
+## 14. Pay in person (pilot)
+
+Until the business bank account and live Stripe account are ready, `app_settings.payment_mode` is `"offline"` (Admin → Settings → How customers pay):
+
+- Posting a job publishes it right away; nothing is charged online.
+- Customers see the estimated total and the in-person payment instructions (also editable in Admin → Settings).
+- Helpers can apply without setting up Stripe payouts.
+- Completing or cancelling a job moves no money; settle in person.
+- Switch back to "Online with Stripe" once live Stripe keys are in Vercel. Everything else (checkout, payouts, refunds) works as before.

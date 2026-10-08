@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireOnboarded } from "@/lib/auth";
+import { getPaymentMode } from "@/lib/settings";
 import { formatCents, formatJobTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
@@ -24,6 +25,7 @@ const NOTICES: Record<string, { text: string; tone: string }> = {
 export default async function EarningsPage({ searchParams }: { searchParams: { payouts?: string } }) {
   const { profile, helper } = await requireOnboarded();
   if (profile.role !== "helper" || !helper) redirect("/home");
+  const offline = (await getPaymentMode()) === "offline";
 
   const supabase = createClient();
   const { data } = await supabase
@@ -52,7 +54,12 @@ export default async function EarningsPage({ searchParams }: { searchParams: { p
         </div>
       </div>
 
-      {helper.stripe_onboarded ? (
+      {offline && (
+        <p className="card text-sm text-slate-600">
+          For now, jobs are paid in person after the work is done. Online payouts through Stripe are coming soon.
+        </p>
+      )}
+      {offline ? null : helper.stripe_onboarded ? (
         <form action="/api/stripe/dashboard" method="post">
           <button className="btn-secondary">Open Stripe payouts dashboard</button>
         </form>

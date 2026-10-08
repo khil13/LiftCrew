@@ -18,3 +18,18 @@ export async function getPlatformFeePercent(): Promise<number> {
   const value = Number(await getSetting("platform_fee_percent"));
   return Number.isFinite(value) && value >= 0 ? value : 15;
 }
+
+export type PaymentMode = "stripe" | "offline";
+
+/** "offline" = customers pay in person; jobs go live without online payment. */
+export async function getPaymentMode(): Promise<PaymentMode> {
+  return (await getSetting("payment_mode")) === "offline" ? "offline" : "stripe";
+}
+
+/** What customers are told about paying in person (offline mode). */
+export async function getOfflinePaymentInstructions(): Promise<string> {
+  const value = await getSetting("offline_payment_instructions");
+  return typeof value === "string" && value.trim()
+    ? value
+    : "Pay at the end of the job by cash, Cash App, or Zelle.";
+}
