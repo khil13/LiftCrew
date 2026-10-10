@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { requireOnboarded } from "@/lib/auth";
+import { getPaymentMode } from "@/lib/settings";
 import { formatCents } from "@/lib/format";
 import { JOB_TYPE_LABELS, type JobType } from "@/lib/compliance/jobTypes";
 
 export default async function HomePage() {
   const { profile, helper, company } = await requireOnboarded();
   const firstName = profile.full_name.split(" ")[0];
+  const offline = (await getPaymentMode()) === "offline";
 
   return (
     <div className="space-y-4">
@@ -30,7 +32,7 @@ export default async function HomePage() {
               Edit profile
             </Link>
           </div>
-          {helper.stripe_onboarded ? (
+          {helper.stripe_onboarded || offline ? (
             <Link href="/jobs" className="btn-primary">
               Find jobs near you
             </Link>

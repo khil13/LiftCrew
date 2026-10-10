@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireOnboarded } from "@/lib/auth";
-import { getAllowedStates, getPlatformFeePercent } from "@/lib/settings";
+import { getAllowedStates, getOfflinePaymentInstructions, getPaymentMode, getPlatformFeePercent } from "@/lib/settings";
 import { outOfStateMessage } from "@/lib/compliance/states";
 import PostJobForm from "./PostJobForm";
 
@@ -23,7 +23,12 @@ export default async function NewJobPage() {
     );
   }
 
-  const [allowed, feePercent] = await Promise.all([getAllowedStates(), getPlatformFeePercent()]);
+  const [allowed, feePercent, paymentMode, instructions] = await Promise.all([
+    getAllowedStates(),
+    getPlatformFeePercent(),
+    getPaymentMode(),
+    getOfflinePaymentInstructions(),
+  ]);
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">{profile.role === "company" ? "Post a shift" : "Post a job"}</h1>
@@ -32,6 +37,7 @@ export default async function NewJobPage() {
         maxHelpers={profile.role === "customer" ? 4 : 10}
         outOfStateMessage={outOfStateMessage(allowed)}
         allowRepeat={profile.role === "company"}
+        offlinePayment={paymentMode === "offline" ? instructions : null}
       />
     </div>
   );

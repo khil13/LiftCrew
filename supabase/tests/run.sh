@@ -287,5 +287,31 @@ check $H  ok   "helper saves push subscription"    "insert into push_subscriptio
 check $H  fail "cannot save push for someone else" "insert into push_subscriptions (profile_id, endpoint, p256dh, auth) values ('$C', 'https://push.example/2', 'k', 'a')"
 expect "push subscriptions are private"      "$(q $C "select count(*) from push_subscriptions")" "0"
 
+# ---------------------------------------------------------------------------
+# Payment mode: pay in person
+# ---------------------------------------------------------------------------
+J7=aaaaaaaa-0000-0000-0000-000000000007
+H3=77777777-7777-7777-7777-777777777777
+$P -c "insert into auth.users values ('$H3')" >/dev/null
+check $C  ok   "post job (still draft)"            "$GEO values ('$J7', '$C', 'Cash job', '{loading}', 'Newark', 'NJ', 40.7357, -74.1724, now() + interval '2 days', 2, 1, 3000, true)"
+check $C  fail "cannot publish without paying (stripe mode)" "select publish_job('$J7')"
+check $A  ok   "admin switches to pay in person"   "do \$\$ declare n int; begin update app_settings set value = '\"offline\"' where key = 'payment_mode'; get diagnostics n = row_count; if n = 0 then raise exception 'no rows'; end if; end \$\$"
+check $H  fail "others cannot publish the job"     "select publish_job('$J7')"
+check $C  ok   "poster publishes directly"         "select publish_job('$J7')"
+expect "published job is open"               "$(q $C "select status from jobs where id = '$J7'")" "open"
+check $C  fail "cannot publish twice"              "select publish_job('$J7')"
+check $H3 ok   "new helper onboards (no Stripe)"   "insert into profiles (id, role, full_name) values ('$H3', 'helper', 'Hugo');
+  insert into helper_profiles (id, hourly_rate_cents, skills, home_lat, home_lng, home_state, agreed_labor_only_terms_at)
+  values ('$H3', 2500, '{loading}', 40.72, -74.05, 'NJ', now())"
+check $H3 ok   "helper applies without Stripe payouts" "insert into job_applications (job_id, helper_id) values ('$J7', '$H3')"
+$P -c "update app_settings set value = '\"stripe\"' where key = 'payment_mode'" >/dev/null
+J8=aaaaaaaa-0000-0000-0000-000000000008
+check $C  ok   "post another job"                  "$GEO values ('$J8', '$C', 'Card job', '{loading}', 'Newark', 'NJ', 40.7357, -74.1724, now() + interval '2 days', 2, 1, 3000, true)"
+$P -c "update jobs set status = 'open' where id = '$J8'" >/dev/null
+check $H3 fail "Stripe mode requires payouts again" "insert into job_applications (job_id, helper_id) values ('$J8', '$H3')"
+$P -c "update helper_profiles set stripe_onboarded = true where id = '$H3'" >/dev/null
+check $H3 ok   "same helper applies once payouts are set up" "insert into job_applications (job_id, helper_id) values ('$J8', '$H3')"
+check $C  fail "customers cannot change payment mode" "do \$\$ declare n int; begin update app_settings set value = '\"offline\"' where key = 'payment_mode'; get diagnostics n = row_count; if n = 0 then raise exception 'no rows'; end if; end \$\$"
+
 echo
 if [ $failures -eq 0 ]; then echo "All DB checks passed"; else echo "$failures DB check(s) failed"; exit 1; fi

@@ -10,6 +10,7 @@ import { validateJobLocation } from "@/lib/compliance/states";
 import { ALLOWED_JOB_TYPES } from "@/lib/compliance/jobTypes";
 import { dollarsToCents } from "@/lib/format";
 import { PaymentsUnavailableError, createJobCheckout } from "@/lib/payments";
+import { getPaymentMode } from "@/lib/settings";
 
 export type PostJobState = { error?: string };
 
@@ -144,6 +145,19 @@ export async function postJob(_prev: PostJobState, formData: FormData): Promise<
   }
 
   const ids = data.map((j) => j.id as string);
+
+  // Pay-in-person mode: publish right away; the customer pays at the job.
+  if ((await getPaymentMode()) === "offline") {
+    for (const id of ids) {
+      const { error: publishError } = await supabase.rpc("publish_job", { p_job_id: id });
+      if (publishError) {
+        console.error(publishError);
+        redirect(`/jobs/${id}`); // stays a draft; the job page offers to publish again
+      }
+    }
+    redirect(ids.length === 1 ? `/jobs/${ids[0]}?posted=1` : "/jobs?posted=1");
+  }
+
   let checkoutUrl: string;
   try {
     checkoutUrl = await createJobCheckout(ids, session.userId, session.email);

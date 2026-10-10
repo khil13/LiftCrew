@@ -23,12 +23,15 @@ export default function PostJobForm({
   maxHelpers,
   outOfStateMessage,
   allowRepeat = false,
+  offlinePayment = null,
 }: {
   feePercent: number;
   maxHelpers: number;
   outOfStateMessage: string;
   /** Companies can post the same shift every week. */
   allowRepeat?: boolean;
+  /** Pay-in-person instructions; null when customers pay online with Stripe. */
+  offlinePayment?: string | null;
 }) {
   const [state, action] = useFormState(postJob, {});
   const [step, setStep] = useState(0);
@@ -294,8 +297,9 @@ export default function PostJobForm({
           </dl>
         )}
         <p className="text-xs text-slate-500">
-          You&apos;ll pay securely with Stripe on the next screen. We hold the payment until the job is done. Cancel
-          more than 24 hours before the start for a full refund; later cancellations pay each booked helper 1 hour.
+          {offlinePayment
+            ? `No payment now. ${offlinePayment}`
+            : "You'll pay securely with Stripe on the next screen. We hold the payment until the job is done. Cancel more than 24 hours before the start for a full refund; later cancellations pay each booked helper 1 hour."}
         </p>
         <label className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
           <input type="checkbox" name="attest_labor_only" className="mt-1" />
@@ -323,7 +327,7 @@ export default function PostJobForm({
             Next
           </button>
         ) : (
-          <SubmitButton pendingText="Saving…">Continue to payment</SubmitButton>
+          <SubmitButton pendingText="Saving…">{offlinePayment ? "Post job" : "Continue to payment"}</SubmitButton>
         )}
       </div>
     </form>

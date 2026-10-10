@@ -6,7 +6,7 @@ import { requireOnboarded, type Session } from "@/lib/auth";
 import { JOB_TYPE_LABELS, type JobType } from "@/lib/compliance/jobTypes";
 import { TIME_ZONE, formatCents, formatHours, formatJobTime } from "@/lib/format";
 import { estimateJobPrice } from "@/lib/pricing";
-import { getPlatformFeePercent } from "@/lib/settings";
+import { getOfflinePaymentInstructions, getPaymentMode, getPlatformFeePercent } from "@/lib/settings";
 import { createClient } from "@/lib/supabase/server";
 import type { ApplicationStatus, Job } from "@/lib/types";
 import CheckInButton from "./CheckInButton";
@@ -60,7 +60,7 @@ export default async function JobPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { paid?: string };
+  searchParams: { paid?: string; posted?: string };
 }) {
   const session = await requireOnboarded();
   if (!/^[0-9a-f-]{36}$/i.test(params.id)) notFound();
@@ -70,13 +70,23 @@ export default async function JobPage({
   if (!job) notFound();
 
   const isPoster = job.poster_id === session.userId;
-  const { data: conversation } = await supabase.from("conversations").select("id").eq("job_id", job.id).maybeSingle();
+  const [{ data: conversation }, paymentMode] = await Promise.all([
+    supabase.from("conversations").select("id").eq("job_id", job.id).maybeSingle(),
+    getPaymentMode(),
+  ]);
+  const offline = paymentMode === "offline";
 
   return (
     <div className="space-y-4">
       <Link href="/jobs" className="text-sm text-slate-500">
         ← Jobs
       </Link>
+
+      {searchParams.posted && isPoster && job.status === "open" && (
+        <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
+          Your job is live. We&apos;ll let you know when helpers apply.
+        </p>
+      )}
 
       {searchParams.paid && isPoster && job.status === "draft" && (
         <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
@@ -99,9 +109,9 @@ export default async function JobPage({
       )}
 
       {isPoster ? (
-        <PosterPanel job={job} session={session} />
+        <PosterPanel job={job} session={session} offline={offline} />
       ) : session.profile.role === "helper" ? (
-        <HelperPanel job={job} session={session} />
+        <HelperPanel job={job} session={session} offline={offline} />
       ) : null}
     </div>
   );
@@ -146,7 +156,7 @@ function JobDetails({ job }: { job: Job }) {
 // Poster
 // ---------------------------------------------------------------------------
 
-async function PosterPanel({ job, session }: { job: Job; session: Session }) {
+async function PosterPanel({ job, session, offline }: { job: Job; session: Session; offline: boolean }) {
   const supabase = createClient();
   const [{ data: apps }, { data: assignmentRows }, { data: payment }, { data: myReviews }, feePercent] =
     await Promise.all([
@@ -169,6 +179,7 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
       supabase.from("reviews").select("reviewee_id").eq("job_id", job.id).eq("reviewer_id", session.userId),
       getPlatformFeePercent(),
     ]);
+  const instructions = offline ? await getOfflinePaymentInstructions() : "";
   const applicants = (apps ?? []) as unknown as Applicant[];
   const assignments = new Map(((assignmentRows ?? []) as Assignment[]).map((a) => [a.helper_id, a]));
   const reviewed = new Set((myReviews ?? []).map((r) => r.reviewee_id as string));
@@ -181,13 +192,35 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
   const started = Date.now() >= new Date(job.scheduled_start).getTime() + 30 * 60 * 1000;
   const lateCancel = new Date(job.scheduled_start).getTime() - Date.now() < 24 * 3_600_000;
 
+  const estimate = estimateJobPrice({
+    helpers: job.helpers_needed,
+    hours: Number(job.estimated_hours),
+    rateCents: job.pay_rate_cents,
+    feePercent,
+  });
+
+  if (job.status === "draft" && offline) {
+    return (
+      <div className="card space-y-3 text-sm">
+        <p className="font-semibold">Publish your job</p>
+        <p className="text-slate-600">
+          Helpers can see and apply once it&apos;s published. Estimated total {formatCents(estimate.totalCents)}, paid
+          in person: {instructions}
+        </p>
+        <div className="flex gap-2">
+          <ActionForm action={payForJob} fields={fields} label="Publish job" variant="primary" />
+          <ActionForm
+            action={changeJobStatus}
+            fields={{ ...fields, status: "cancelled" }}
+            label="Discard"
+            confirm="Discard this draft?"
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (job.status === "draft") {
-    const estimate = estimateJobPrice({
-      helpers: job.helpers_needed,
-      hours: Number(job.estimated_hours),
-      rateCents: job.pay_rate_cents,
-      feePercent,
-    });
     return (
       <div className="card space-y-3 text-sm">
         <p className="font-semibold">Pay to publish your job</p>
@@ -211,6 +244,15 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
   return (
     <>
       {payment && <PaymentSummary payment={payment} />}
+      {!payment && offline && job.status !== "cancelled" && (
+        <div className="card space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-slate-600">Estimated total · pay in person</span>
+            <span className="font-semibold">{formatCents(estimate.totalCents)}</span>
+          </div>
+          <p className="text-slate-600">{instructions}</p>
+        </div>
+      )}
 
       <section className="space-y-2">
         <h2 className="font-semibold">
@@ -311,7 +353,11 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
               fields={{ ...fields, status: "completed" }}
               label="Confirm job complete"
               variant="primary"
-              confirm="Confirm the job is done? Your helpers get paid right away."
+              confirm={
+                offline
+                  ? "Confirm the job is done? Remember to settle payment in person."
+                  : "Confirm the job is done? Your helpers get paid right away."
+              }
             />
           </>
         )}
@@ -322,9 +368,11 @@ async function PosterPanel({ job, session }: { job: Job; session: Session }) {
             label="Cancel job"
             variant="danger"
             confirm={
-              crew.length > 0 && lateCancel
-                ? "Cancel within 24 hours of the start? Each booked helper is paid 1 hour; the rest is refunded."
-                : "Cancel this job? You'll get a full refund."
+              !payment
+                ? "Cancel this job? Your helpers will be notified."
+                : crew.length > 0 && lateCancel
+                  ? "Cancel within 24 hours of the start? Each booked helper is paid 1 hour; the rest is refunded."
+                  : "Cancel this job? You'll get a full refund."
             }
           />
         )}
@@ -450,7 +498,7 @@ function ReviewForm({ jobId, revieweeId, name }: { jobId: string; revieweeId: st
 // Helper
 // ---------------------------------------------------------------------------
 
-async function HelperPanel({ job, session }: { job: Job; session: Session }) {
+async function HelperPanel({ job, session, offline }: { job: Job; session: Session; offline: boolean }) {
   const supabase = createClient();
   const [{ data: application }, { data: assignment }] = await Promise.all([
     supabase
@@ -488,6 +536,12 @@ async function HelperPanel({ job, session }: { job: Job; session: Session }) {
             <JobStatusBadge status="accepted" />
           </div>
           <Attendance assignment={assignment} />
+          {!payout && offline && (
+            <p className="text-slate-600">
+              You earn {formatCents(Math.round(job.pay_rate_cents * Number(job.estimated_hours)))} for{" "}
+              {formatHours(Number(job.estimated_hours))}, paid in person.
+            </p>
+          )}
           {payout && (
             <p className="text-slate-600">
               Payout {formatCents(payout.amount_cents)} ·{" "}
@@ -547,7 +601,7 @@ async function HelperPanel({ job, session }: { job: Job; session: Session }) {
       </Link>
     );
   }
-  if (!helper.stripe_onboarded) {
+  if (!helper.stripe_onboarded && !offline) {
     return (
       <div className="card space-y-2 text-sm">
         <p>Set up payouts so we can pay you, then come back to apply.</p>

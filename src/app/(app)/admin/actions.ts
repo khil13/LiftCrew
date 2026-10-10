@@ -124,3 +124,26 @@ export async function updatePlatformFee(_prev: State, formData: FormData): Promi
   revalidatePath("/admin", "layout");
   return { ok: true };
 }
+
+const PaymentSettings = z.object({
+  mode: z.enum(["stripe", "offline"]),
+  instructions: z.string().trim().min(10, "Add short payment instructions for customers.").max(300),
+});
+
+export async function updatePaymentSettings(_prev: State, formData: FormData): Promise<State> {
+  if (!(await requireAdmin())) return { error: "Admins only." };
+  const parsed = PaymentSettings.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const supabase = createClient();
+  const results = await Promise.all([
+    supabase.from("app_settings").update({ value: parsed.data.mode }).eq("key", "payment_mode").select("key"),
+    supabase
+      .from("app_settings")
+      .update({ value: parsed.data.instructions })
+      .eq("key", "offline_payment_instructions")
+      .select("key"),
+  ]);
+  if (results.some((r) => r.error || !r.data?.length)) return { error: "Could not save payment settings." };
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
