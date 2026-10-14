@@ -46,7 +46,8 @@ export function nextOnboardingStep(session: Session): string | null {
   if (!session.profile) return "/onboarding";
   if (session.profile.role === "helper") {
     const h = session.helper;
-    if (!h || !h.home_state || !h.agreed_labor_only_terms_at) return "/onboarding/helper";
+    if (!h || !h.home_state || !h.agreed_labor_only_terms_at || !h.agreed_helper_agreement_at)
+      return "/onboarding/helper";
   }
   if (session.profile.role === "company" && !session.company) return "/onboarding/company";
   return null;

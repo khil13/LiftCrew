@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import SiteAnalytics from "@/components/SiteAnalytics";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.liftcrewnj.com"),
   title: "LiftCrew",
   description: "Labor-only moving help. Book local helpers to load, unload, and pack.",
   manifest: "/manifest.webmanifest",
@@ -18,7 +20,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">{children}</body>
+      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+        {children}
+        <SiteAnalytics />
+      </body>
     </html>
   );
 }

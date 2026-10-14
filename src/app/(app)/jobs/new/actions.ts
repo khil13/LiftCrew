@@ -9,6 +9,7 @@ import { resolvePlace, type ResolvedPlace } from "@/lib/google/places";
 import { validateJobLocation } from "@/lib/compliance/states";
 import { ALLOWED_JOB_TYPES } from "@/lib/compliance/jobTypes";
 import { dollarsToCents } from "@/lib/format";
+import { LEGAL_VERSION } from "@/lib/legal";
 import { PaymentsUnavailableError, createJobCheckout } from "@/lib/payments";
 import { getPaymentMode } from "@/lib/settings";
 
@@ -55,6 +56,9 @@ const JobSchema = z.object({
   repeat_weeks: z.coerce.number().int().min(1).max(8).default(1),
   attest_labor_only: z.literal("on", {
     message: "Please confirm you're providing your own truck or container.",
+  }),
+  accept_release: z.literal("on", {
+    message: "Please agree to the Customer Booking Terms & Release.",
   }),
 });
 
@@ -109,6 +113,7 @@ export async function postJob(_prev: PostJobState, formData: FormData): Promise<
   // A weekly series is one draft job per week, paid for in one checkout.
   const seriesId = input.repeat_weeks > 1 ? crypto.randomUUID() : null;
   const WEEK = 7 * 24 * 60 * 60 * 1000;
+  const acceptedAt = new Date().toISOString();
   const supabase = createClient();
   const { data, error } = await supabase
     .from("jobs")
@@ -135,6 +140,8 @@ export async function postJob(_prev: PostJobState, formData: FormData): Promise<
         has_heavy_items: input.has_heavy_items,
         truck_provided_by_customer: true,
         customer_attested_labor_only: true,
+        release_version: LEGAL_VERSION,
+        release_accepted_at: acceptedAt,
         status: "draft", // opens when the Stripe webhook confirms payment
       })),
     )

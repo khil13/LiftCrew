@@ -113,8 +113,8 @@ and checks the compliance rules and RLS.
 
 ### Phase 5 — Launch
 
-- [ ] Terms of Service, Privacy Policy, helper independent-contractor agreement (have a lawyer review; `/terms` is a draft)
-- [ ] Liability waiver shown at booking
+- [x] Terms of Service, Privacy Policy, helper independent-contractor agreement (drafts at `/terms`, `/privacy`, `/helper-agreement`; have a lawyer review)
+- [x] Liability waiver shown at booking (`/customer-release`)
 - [ ] Seed helpers in launch city, sign first companies
 - [ ] Analytics (PostHog or Plausible)
 
@@ -227,3 +227,14 @@ Until the business bank account and live Stripe account are ready, `app_settings
 - Helpers can apply without setting up Stripe payouts.
 - Completing or cancelling a job moves no money; settle in person.
 - Switch back to "Online with Stripe" once live Stripe keys are in Vercel. Everything else (checkout, payouts, refunds) works as before.
+
+## 15. Legal documents (Phase 5)
+
+Drafts written for a New Jersey lawyer to review before commercial launch. Names, version, and contact email live in `src/lib/legal.ts`.
+
+- **Pages** (public, no sign-in): `/terms`, `/privacy`, `/customer-release`, `/helper-agreement`. Terms and the helper agreement read the allowed states, fee, and payment mode from `app_settings`, so they stay accurate when those change.
+- **Customers** tick "I agree to the Customer Booking Terms & Release" on every job they post. The version and time are stored on the job (`jobs.release_version`, `release_accepted_at`).
+- **Helpers** accept the Helper Agreement (independent contractor) on their profile form. It is stored on `helper_profiles` (`helper_agreement_version`, `agreed_helper_agreement_at`) and `helper_can_apply()` requires it, so a helper can't apply without it.
+- **Sign-in** shows "By continuing, you agree to the Terms of Service and Privacy Policy."
+- When a document changes in a way users must re-accept, bump `LEGAL_VERSION`. Customers accept again on their next job; helpers are asked again when they edit their profile (to force it, also require the current version in `helper_can_apply()`).
+- Once the LLC exists, set `LEGAL_ENTITY` to its registered name.

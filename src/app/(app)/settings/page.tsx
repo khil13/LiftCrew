@@ -1,6 +1,7 @@
 import Link from "next/link";
 import PushToggle from "@/components/PushToggle";
 import { requireOnboarded } from "@/lib/auth";
+import { LEGAL_DOCS } from "@/lib/legal";
 
 export default async function SettingsPage() {
   const { profile, email, phone } = await requireOnboarded();
@@ -39,9 +40,14 @@ export default async function SettingsPage() {
         )}
       </div>
       <PushToggle />
-      <Link href="/terms" className="card block text-sm font-medium">
-        Terms of Service
-      </Link>
+      <div className="card space-y-2 text-sm">
+        <h2 className="font-semibold">Legal</h2>
+        {LEGAL_DOCS.map((d) => (
+          <Link key={d.href} href={d.href} className="block font-medium text-brand-600">
+            {d.title}
+          </Link>
+        ))}
+      </div>
       <form action="/auth/signout" method="post">
         <button className="btn-secondary">Sign out</button>
       </form>

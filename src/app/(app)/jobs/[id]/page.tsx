@@ -594,7 +594,7 @@ async function HelperPanel({ job, session, offline }: { job: Job; session: Sessi
   if (helper?.suspended_at) {
     return <p className="card text-sm text-red-700">Your account is suspended after repeated no-shows.</p>;
   }
-  if (!helper?.agreed_labor_only_terms_at) {
+  if (!helper?.agreed_labor_only_terms_at || !helper.agreed_helper_agreement_at) {
     return (
       <Link href="/onboarding/helper" className="btn-primary">
         Finish your profile to apply

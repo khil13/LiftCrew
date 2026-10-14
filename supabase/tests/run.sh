@@ -91,7 +91,12 @@ $P -c "update jobs set status = 'open'" >/dev/null   # payment webhook (service 
 check $H  fail "cannot apply before labor terms"   "insert into job_applications (job_id, helper_id) select id, '$H' from jobs limit 1"
 check $C  fail "signed-out cannot call helpers"     "reset role; set local role anon; select is_admin()"
 check $H  ok   "helper agrees to labor-only terms" "update helper_profiles set agreed_labor_only_terms_at = now() where id = '$H'"
+$P -c "update helper_profiles set stripe_onboarded = true where id = '$H'" >/dev/null   # Stripe onboarding webhook
+check $H  fail "cannot apply before helper agreement" "insert into job_applications (job_id, helper_id) select id, '$H' from jobs limit 1"
+check $H  ok   "helper accepts helper agreement"   "update helper_profiles set helper_agreement_version = '2026-10-14', agreed_helper_agreement_at = now() where id = '$H'"
+$P -c "update helper_profiles set stripe_onboarded = false where id = '$H'" >/dev/null
 check $H  fail "cannot apply before payouts set up" "insert into job_applications (job_id, helper_id) select id, '$H' from jobs limit 1"
+check $H  fail "helper cannot mark self onboarded" "update helper_profiles set stripe_onboarded = true where id = '$H'"
 $P -c "update helper_profiles set stripe_onboarded = true where id = '$H'" >/dev/null   # Stripe onboarding webhook
 check $H  ok   "helper applies after terms"        "insert into job_applications (job_id, helper_id) select id, '$H' from jobs limit 1"
 check $C  fail "poster cannot accept by editing"   "update job_applications set status = 'accepted'"
@@ -122,8 +127,9 @@ expect() { # expect <description> <actual> <expected>
 }
 
 check $H2 ok   "second helper onboards"            "insert into profiles (id, role, full_name) values ('$H2', 'helper', 'Hana');
-  insert into helper_profiles (id, hourly_rate_cents, skills, home_lat, home_lng, home_state, agreed_labor_only_terms_at)
-  values ('$H2', 2500, '{loading}', 40.72, -74.05, 'NJ', now())"
+  insert into helper_profiles (id, hourly_rate_cents, skills, home_lat, home_lng, home_state, agreed_labor_only_terms_at,
+                              helper_agreement_version, agreed_helper_agreement_at)
+  values ('$H2', 2500, '{loading}', 40.72, -74.05, 'NJ', now(), '2026-10-14', now())"
 $P -c "update helper_profiles set stripe_onboarded = true where id = '$H2'" >/dev/null
 
 GEO="insert into jobs (id, poster_id, title, job_type, start_address, start_state, start_lat, start_lng,
@@ -301,8 +307,9 @@ check $C  ok   "poster publishes directly"         "select publish_job('$J7')"
 expect "published job is open"               "$(q $C "select status from jobs where id = '$J7'")" "open"
 check $C  fail "cannot publish twice"              "select publish_job('$J7')"
 check $H3 ok   "new helper onboards (no Stripe)"   "insert into profiles (id, role, full_name) values ('$H3', 'helper', 'Hugo');
-  insert into helper_profiles (id, hourly_rate_cents, skills, home_lat, home_lng, home_state, agreed_labor_only_terms_at)
-  values ('$H3', 2500, '{loading}', 40.72, -74.05, 'NJ', now())"
+  insert into helper_profiles (id, hourly_rate_cents, skills, home_lat, home_lng, home_state, agreed_labor_only_terms_at,
+                              helper_agreement_version, agreed_helper_agreement_at)
+  values ('$H3', 2500, '{loading}', 40.72, -74.05, 'NJ', now(), '2026-10-14', now())"
 check $H3 ok   "helper applies without Stripe payouts" "insert into job_applications (job_id, helper_id) values ('$J7', '$H3')"
 $P -c "update app_settings set value = '\"stripe\"' where key = 'payment_mode'" >/dev/null
 J8=aaaaaaaa-0000-0000-0000-000000000008

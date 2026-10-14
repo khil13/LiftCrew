@@ -27,6 +27,8 @@ export type HelperProfile = {
   rating_count: number;
   jobs_completed: number;
   agreed_labor_only_terms_at: string | null;
+  helper_agreement_version: string | null;
+  agreed_helper_agreement_at: string | null;
   strikes: number;
   suspended_at: string | null;
 };
