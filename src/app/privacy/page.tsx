@@ -47,7 +47,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Device and usage:</strong> IP address, browser and device type, log data, push notification tokens
-            if you turn on notifications, and cookies needed to keep you signed in.
+            if you turn on notifications, and cookies needed to keep you signed in. We count page visits with Vercel Web
+            Analytics, which uses no cookies and does not identify you.
           </li>
         </ul>
       </Section>
@@ -86,7 +87,7 @@ export default function PrivacyPage() {
       <Section title="4. Who we share it with">
         <p>We share information only as needed to run LiftCrew, with service providers bound to protect it:</p>
         <ul className={ul}>
-          <li>Supabase (database and sign-in) and Vercel (website hosting)</li>
+          <li>Supabase (database and sign-in) and Vercel (website hosting and visit counts)</li>
           <li>Google Maps Platform (address lookup and verification)</li>
           <li>Stripe (card payments and helper payouts, when enabled)</li>
           <li>Resend (email), Twilio (text messages), and your browser&apos;s push service (notifications)</li>
