@@ -9,6 +9,7 @@ import { resolvePlace, type ResolvedPlace } from "@/lib/google/places";
 import { validateJobLocation } from "@/lib/compliance/states";
 import { ALLOWED_JOB_TYPES } from "@/lib/compliance/jobTypes";
 import { dollarsToCents } from "@/lib/format";
+import { MAX_JOB_HOURS, MIN_JOB_HOURS } from "@/lib/pricing";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { PaymentsUnavailableError, createJobCheckout } from "@/lib/payments";
 import { getPaymentMode } from "@/lib/settings";
@@ -31,8 +32,8 @@ const JobSchema = z.object({
   }),
   estimated_hours: z.coerce
     .number()
-    .min(1, "Jobs are at least 1 hour.")
-    .max(12, "Jobs are at most 12 hours.")
+    .min(MIN_JOB_HOURS, `Jobs are at least ${MIN_JOB_HOURS} hours.`)
+    .max(MAX_JOB_HOURS, `Jobs are at most ${MAX_JOB_HOURS} hours.`)
     .refine((h) => Number.isInteger(h * 2), "Use whole or half hours."),
   helpers_needed: z.coerce.number().int().min(1).max(10),
   pay_rate: z.string().transform((v, ctx) => {

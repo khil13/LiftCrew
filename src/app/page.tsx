@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth";
 import { getAllowedStates, getPaymentMode, getPlatformFeePercent } from "@/lib/settings";
 import { formatAllowedStates } from "@/lib/compliance/states";
 import { ALLOWED_JOB_TYPES, JOB_TYPE_LABELS } from "@/lib/compliance/jobTypes";
-import { estimateJobPrice } from "@/lib/pricing";
+import { MIN_JOB_HOURS, estimateJobPrice } from "@/lib/pricing";
 import { formatCents } from "@/lib/format";
 import { LEGAL_DOCS, SUPPORT_EMAIL } from "@/lib/legal";
 
@@ -124,8 +124,8 @@ export default async function LandingPage() {
           Simple hourly pricing
         </h2>
         <p className="mt-2 text-sm text-slate-600">
-          You choose the rate per helper ($15–$200 an hour). Most moves use 2 helpers for 2–4 hours. You see the full
-          price before you book. Example:
+          You choose the rate per helper ($15–$200 an hour). Every job has a {MIN_JOB_HOURS}-hour minimum, and most
+          moves use 2 helpers for 2–4 hours. You see the full price before you book. Example:
         </p>
         <dl className="card mt-4 space-y-1 text-sm">
           <div className="flex justify-between">

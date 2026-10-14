@@ -13,7 +13,7 @@ import {
 } from "@/lib/compliance/jobTypes";
 import { matchModerationPhrases } from "@/lib/compliance/moderation";
 import { dollarsToCents, formatCents } from "@/lib/format";
-import { estimateJobPrice } from "@/lib/pricing";
+import { MAX_JOB_HOURS, MIN_JOB_HOURS, estimateJobPrice } from "@/lib/pricing";
 import { postJob } from "./actions";
 
 const STEPS = ["Addresses", "Date & time", "Hours & helpers", "Details", "Review"] as const;
@@ -72,7 +72,8 @@ export default function PostJobForm({
     }
     if (i === 2) {
       const h = Number(hours);
-      if (!(h >= 1 && h <= 12 && Number.isInteger(h * 2))) return "Hours must be 1–12, in half hours.";
+      if (!(h >= MIN_JOB_HOURS && h <= MAX_JOB_HOURS && Number.isInteger(h * 2)))
+        return `Hours must be ${MIN_JOB_HOURS}–${MAX_JOB_HOURS}, in half hours (${MIN_JOB_HOURS}-hour minimum).`;
       if (rateCents === null || rateCents < 1500 || rateCents > 20000) return "Pay rate must be between $15 and $200.";
     }
     if (i === 3) {
@@ -163,14 +164,14 @@ export default function PostJobForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="estimated_hours" className="label">
-              Hours
+              Hours <span className="font-normal text-slate-500">({MIN_JOB_HOURS} min)</span>
             </label>
             <input
               id="estimated_hours"
               name="estimated_hours"
               type="number"
-              min={1}
-              max={12}
+              min={MIN_JOB_HOURS}
+              max={MAX_JOB_HOURS}
               step={0.5}
               className="input"
               value={hours}
