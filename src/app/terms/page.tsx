@@ -3,6 +3,7 @@ import LegalPage, { Section } from "@/components/LegalPage";
 import { getAllowedStates, getPaymentMode, getPlatformFeePercent } from "@/lib/settings";
 import { formatAllowedStates } from "@/lib/compliance/states";
 import { CUSTOMER_LABOR_ONLY_ATTESTATION, HELPER_LABOR_ONLY_TERMS } from "@/lib/compliance/jobTypes";
+import { MIN_JOB_HOURS } from "@/lib/pricing";
 import { LEGAL_ENTITY, SITE_URL, SUPPORT_EMAIL } from "@/lib/legal";
 
 export const metadata = { title: "Terms of Service · LiftCrew" };
@@ -108,7 +109,7 @@ export default async function TermsPage() {
           <li>
             Customers set the hourly rate per helper, the number of helpers, and the estimated hours. The job total is
             helpers × hours × rate, plus a LiftCrew service fee (currently {fee}% of the labor amount), shown before you
-            post.
+            post. Every job is booked for at least {MIN_JOB_HOURS} hours.
           </li>
           {mode === "offline" ? (
             <li>

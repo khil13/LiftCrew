@@ -76,6 +76,7 @@ check $C  fail "cross-state job fails"             "$JOB values ('$C', 'Move', '
 # Jobs: labor only (Rule 2)
 check $C  fail "labor-only attestation required"   "$JOB values ('$C', 'Move', '{loading}', 'a', 'NJ', null, null, now(), 3, 2500, false)"
 check $C  fail "transport job type rejected"       "$JOB values ('$C', 'Move', '{delivery}', 'a', 'NJ', null, null, now(), 3, 2500, true)"
+check $C  fail "job under the 2-hour minimum"      "$JOB values ('$C', 'Move', '{loading}', 'a', 'NJ', null, null, now(), 1.5, 2500, true)"
 check $C  fail "helper-supplied truck rejected"    "insert into jobs (poster_id, title, job_type, start_address, start_state, scheduled_start, estimated_hours, pay_rate_cents, customer_attested_labor_only, truck_provided_by_customer) values ('$C', 'Move', '{loading}', 'a', 'NJ', now(), 3, 2500, true, false)"
 check $H  fail "helper cannot post jobs"           "$JOB values ('$H', 'Move', '{loading}', 'a', 'NJ', 'b', 'NJ', now(), 3, 2500, true)"
 
