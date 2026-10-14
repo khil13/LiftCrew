@@ -6,6 +6,7 @@ import AvatarUpload from "@/components/AvatarUpload";
 import FormError from "@/components/FormError";
 import SubmitButton from "@/components/SubmitButton";
 import { ALLOWED_JOB_TYPES, HELPER_LABOR_ONLY_TERMS, JOB_TYPE_LABELS } from "@/lib/compliance/jobTypes";
+import { LEGAL_VERSION } from "@/lib/legal";
 import type { HelperProfile } from "@/lib/types";
 import { saveHelperProfile } from "./actions";
 
@@ -104,7 +105,12 @@ export default function HelperForm({
       </div>
 
       <label className="flex gap-3 text-sm">
-        <input type="checkbox" name="has_own_ride_to_jobs" defaultChecked={helper?.has_own_ride_to_jobs} className="mt-1" />
+        <input
+          type="checkbox"
+          name="has_own_ride_to_jobs"
+          defaultChecked={helper?.has_own_ride_to_jobs}
+          className="mt-1"
+        />
         <span>
           I have my own way to get to jobs.
           <span className="block text-xs text-slate-500">
@@ -122,6 +128,28 @@ export default function HelperForm({
           required
         />
         <span>{HELPER_LABOR_ONLY_TERMS}</span>
+      </label>
+
+      <label className="flex gap-3 text-sm">
+        <input
+          type="checkbox"
+          name="agree_helper_agreement"
+          defaultChecked={helper?.helper_agreement_version === LEGAL_VERSION}
+          className="mt-1"
+          required
+        />
+        <span>
+          I accept the{" "}
+          <a href="/helper-agreement" target="_blank" rel="noopener" className="underline">
+            Helper Agreement
+          </a>{" "}
+          and{" "}
+          <a href="/terms" target="_blank" rel="noopener" className="underline">
+            Terms of Service
+          </a>
+          . I work as an independent contractor, not a LiftCrew employee, and I&apos;m responsible for my own taxes and
+          insurance.
+        </span>
       </label>
 
       <p className="text-xs text-slate-500">Payout setup (Stripe) comes later, before your first job.</p>

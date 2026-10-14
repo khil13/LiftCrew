@@ -67,7 +67,8 @@ export default function PostJobForm({
     }
     if (i === 1) {
       if (!localStart) return "Pick a date and start time.";
-      if (new Date(localStart).getTime() < Date.now() + 60 * 60 * 1000) return "Pick a start time at least 1 hour from now.";
+      if (new Date(localStart).getTime() < Date.now() + 60 * 60 * 1000)
+        return "Pick a start time at least 1 hour from now.";
     }
     if (i === 2) {
       const h = Number(hours);
@@ -215,7 +216,10 @@ export default function PostJobForm({
           <legend className="label">What do you need help with?</legend>
           <div className="grid grid-cols-1 gap-2">
             {ALLOWED_JOB_TYPES.map((t) => (
-              <label key={t} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+              <label
+                key={t}
+                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5"
+              >
                 <input
                   type="checkbox"
                   name="job_type"
@@ -304,6 +308,20 @@ export default function PostJobForm({
         <label className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">
           <input type="checkbox" name="attest_labor_only" className="mt-1" />
           <span>{CUSTOMER_LABOR_ONLY_ATTESTATION}</span>
+        </label>
+        <label className="flex gap-3 text-sm">
+          <input type="checkbox" name="accept_release" className="mt-1" />
+          <span>
+            I agree to the{" "}
+            <a href="/customer-release" target="_blank" rel="noopener" className="underline">
+              Customer Booking Terms &amp; Release
+            </a>
+            , including the release of claims against LiftCrew, and the{" "}
+            <a href="/terms" target="_blank" rel="noopener" className="underline">
+              Terms of Service
+            </a>
+            .
+          </span>
         </label>
       </div>
 

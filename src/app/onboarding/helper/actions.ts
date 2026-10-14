@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { LEGAL_VERSION } from "@/lib/legal";
 import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth";
 import { getAllowedStates } from "@/lib/settings";
@@ -31,6 +32,7 @@ const HelperSchema = z.object({
   home_session: z.string().optional(),
   avatar_url: z.string().optional(),
   agree_labor_only: z.literal("on", { message: "You must agree to the labor-only terms." }),
+  agree_helper_agreement: z.literal("on", { message: "You must accept the Helper Agreement." }),
 });
 
 export async function saveHelperProfile(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -84,6 +86,9 @@ export async function saveHelperProfile(_prev: FormState, formData: FormData): P
     service_radius_miles: input.service_radius_miles,
     ...home,
     agreed_labor_only_terms_at: session.helper?.agreed_labor_only_terms_at ?? new Date().toISOString(),
+    ...(session.helper?.helper_agreement_version === LEGAL_VERSION
+      ? {}
+      : { helper_agreement_version: LEGAL_VERSION, agreed_helper_agreement_at: new Date().toISOString() }),
   };
   // Insert or update rather than upsert: users may not write the id column on update.
   const { error } = session.helper

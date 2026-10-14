@@ -36,6 +36,10 @@ export default async function LandingPage() {
           LiftCrew is a labor-only marketplace, not a moving company or broker.{" "}
           <Link href="/terms" className="underline">
             Terms
+          </Link>{" "}
+          ·{" "}
+          <Link href="/privacy" className="underline">
+            Privacy
           </Link>
         </p>
       </div>
