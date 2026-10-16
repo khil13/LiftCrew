@@ -238,3 +238,11 @@ Drafts written for a New Jersey lawyer to review before commercial launch. Names
 - **Sign-in** shows "By continuing, you agree to the Terms of Service and Privacy Policy."
 - When a document changes in a way users must re-accept, bump `LEGAL_VERSION`. Customers accept again on their next job; helpers are asked again when they edit their profile (to force it, also require the current version in `helper_can_apply()`).
 - Once the LLC exists, set `LEGAL_ENTITY` to its registered name.
+
+## 16. Quick quotes
+
+Visitors can ask for a quote without an account (landing page, `#quote`).
+
+- The form (`src/components/QuoteForm.tsx`) posts to `requestQuote` (`src/app/quote-actions.ts`). It checks the input with zod (`src/lib/quotes.ts`), normalizes the phone to E.164, applies rate limits (3 per phone and 60 overall per hour) and a honeypot, then saves the request with the service role.
+- `quote_requests` (0012): RLS is on; anon and authenticated users have no write access, and only admins can read.
+- New requests email `LEAD_ALERT_EMAIL` (default liftcrewnj@gmail.com) and, if `LEAD_ALERT_PHONE` is set, send a text. Transport language (Rule 4 phrases) is called out in the alert so the follow-up call restates labor only.

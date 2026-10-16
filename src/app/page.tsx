@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Logo from "@/components/Logo";
+import QuoteForm from "@/components/QuoteForm";
 import { getSession } from "@/lib/auth";
 import { getAllowedStates, getPaymentMode, getPlatformFeePercent } from "@/lib/settings";
 import { formatAllowedStates } from "@/lib/compliance/states";
@@ -146,6 +147,30 @@ export default async function LandingPage() {
             <li>You set the rate</li>
             <li>{offline ? "Pay after the job" : "Paid only after the job"}</li>
           </ul>
+          <a href="#quote" className="mt-6 inline-block text-sm font-semibold underline underline-offset-4">
+            Rather talk to someone? Get a free quote, no account needed
+          </a>
+        </section>
+
+        {/* Quick quote */}
+        <section id="quote" className="scroll-mt-6 border-t border-slate-200 py-12" aria-labelledby="quote-title">
+          <div className="grid gap-8 sm:grid-cols-2 sm:items-start">
+            <div>
+              <h2 id="quote-title" className="text-2xl font-bold tracking-tight">
+                Get a free quote
+              </h2>
+              <p className="mt-3 leading-relaxed text-slate-500">
+                Tell us about your move and we&apos;ll call or text you with a price and available times. No account, no
+                commitment.
+              </p>
+              <ul className="mt-5 space-y-2 text-slate-700">
+                <li>✓ Fast reply by call or text</li>
+                <li>✓ {MIN_JOB_HOURS}-hour minimum, priced by the hour</li>
+                <li>✓ Serving Irvington, Newark, Union, Maplewood &amp; all of {state}</li>
+              </ul>
+            </div>
+            <QuoteForm />
+          </div>
         </section>
 
         {/* How it works */}
