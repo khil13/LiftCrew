@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { toE164 } from "@/lib/phone";
 import { pushToUser } from "@/lib/push";
+import { envValue } from "@/lib/env";
 
 // Outbound email (Resend), SMS (Twilio), and web push. In-app notifications are written by
 // DB triggers; these are best effort and never throw, so a provider problem
@@ -10,8 +11,8 @@ import { pushToUser } from "@/lib/push";
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 async function sendEmail(to: string, subject: string, text: string): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
+  const apiKey = envValue("RESEND_API_KEY");
+  const from = envValue("RESEND_FROM_EMAIL");
   if (!apiKey || !from) {
     console.info(`[email skipped: Resend not configured] ${subject}`);
     return;
@@ -22,12 +23,13 @@ async function sendEmail(to: string, subject: string, text: string): Promise<voi
     body: JSON.stringify({ from, to, subject, text }),
   });
   if (!res.ok) console.error(`Resend failed (${res.status}): ${await res.text()}`);
+  else console.info(`[email sent] ${subject}`);
 }
 
 async function sendSms(to: string, body: string): Promise<void> {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_PHONE_NUMBER;
+  const sid = envValue("TWILIO_ACCOUNT_SID");
+  const token = envValue("TWILIO_AUTH_TOKEN");
+  const from = envValue("TWILIO_PHONE_NUMBER");
   if (!sid || !token || !from) {
     console.info(`[sms skipped: Twilio not configured] ${body}`);
     return;
@@ -81,8 +83,8 @@ export async function notifyUser(
 /** Alerts the business about a new quick-quote request (email, plus a text if LEAD_ALERT_PHONE is set). */
 export async function notifyNewQuote(summary: string, name: string, town: string): Promise<void> {
   try {
-    const email = process.env.LEAD_ALERT_EMAIL || "liftcrewnj@gmail.com";
-    const phone = toE164(process.env.LEAD_ALERT_PHONE);
+    const email = envValue("LEAD_ALERT_EMAIL") || "liftcrewnj@gmail.com";
+    const phone = toE164(envValue("LEAD_ALERT_PHONE"));
     await Promise.all([
       sendEmail(
         email,
