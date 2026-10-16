@@ -1,4 +1,5 @@
 import "server-only";
+import { envValue } from "@/lib/env";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -7,8 +8,8 @@ let configured: boolean | null = null;
 function configure(): boolean {
   if (configured !== null) return configured;
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT;
+  const privateKey = envValue("VAPID_PRIVATE_KEY");
+  const subject = envValue("VAPID_SUBJECT");
   configured = Boolean(publicKey && privateKey && subject);
   if (configured) webpush.setVapidDetails(subject!, publicKey!, privateKey!);
   return configured;
@@ -18,7 +19,10 @@ function configure(): boolean {
 export async function pushToUser(profileId: string, message: { title: string; body: string; url: string }) {
   const admin = createAdminClient();
   if (!admin || !configure()) return;
-  const { data } = await admin.from("push_subscriptions").select("id, endpoint, p256dh, auth").eq("profile_id", profileId);
+  const { data } = await admin
+    .from("push_subscriptions")
+    .select("id, endpoint, p256dh, auth")
+    .eq("profile_id", profileId);
   await Promise.all(
     (data ?? []).map(async (sub) => {
       try {
