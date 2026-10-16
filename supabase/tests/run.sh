@@ -321,5 +321,12 @@ $P -c "update helper_profiles set stripe_onboarded = true where id = '$H3'" >/de
 check $H3 ok   "same helper applies once payouts are set up" "insert into job_applications (job_id, helper_id) values ('$J8', '$H3')"
 check $C  fail "customers cannot change payment mode" "do \$\$ declare n int; begin update app_settings set value = '\"offline\"' where key = 'payment_mode'; get diagnostics n = row_count; if n = 0 then raise exception 'no rows'; end if; end \$\$"
 
+# Quick quotes (0012): only the server writes them; only admins read them
+check $C  fail "visitors cannot insert quote requests" "insert into quote_requests (name, phone, town) values ('Q', '+19735550100', 'Irvington')"
+$P -c "insert into quote_requests (name, phone, town) values ('Q', '+19735550100', 'Irvington')" >/dev/null   # server (service role)
+check $C  ok   "customers see no quote requests"       "do \$\$ begin if exists (select 1 from quote_requests) then raise exception 'visible'; end if; end \$\$"
+expect "admins can read quote requests" "$(q $A "select count(*) from quote_requests")" "1"
+check $A  fail "bad phone format rejected"            "reset role; insert into quote_requests (name, phone, town) values ('Q', '555', 'Irvington')"
+
 echo
 if [ $failures -eq 0 ]; then echo "All DB checks passed"; else echo "$failures DB check(s) failed"; exit 1; fi

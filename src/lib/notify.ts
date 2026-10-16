@@ -77,3 +77,21 @@ export async function notifyUser(
     console.error("Notification failed", err);
   }
 }
+
+/** Alerts the business about a new quick-quote request (email, plus a text if LEAD_ALERT_PHONE is set). */
+export async function notifyNewQuote(summary: string, name: string, town: string): Promise<void> {
+  try {
+    const email = process.env.LEAD_ALERT_EMAIL || "liftcrewnj@gmail.com";
+    const phone = toE164(process.env.LEAD_ALERT_PHONE);
+    await Promise.all([
+      sendEmail(
+        email,
+        `New quote request: ${name} (${town})`,
+        `${summary}\n\nCall or text them back soon. Fast replies win jobs.\n\n— LiftCrew`,
+      ),
+      phone ? sendSms(phone, `LiftCrew quote: ${name}, ${town}. Check your email for details.`) : null,
+    ]);
+  } catch (err) {
+    console.error("Quote alert failed", err);
+  }
+}
