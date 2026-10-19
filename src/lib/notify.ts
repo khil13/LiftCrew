@@ -10,20 +10,32 @@ import { envValue } from "@/lib/env";
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-async function sendEmail(to: string, subject: string, text: string): Promise<void> {
+/** Sends an email through Resend. Returns a short, secret-free status for logs and the database. */
+async function sendEmail(to: string, subject: string, text: string): Promise<string> {
   const apiKey = envValue("RESEND_API_KEY");
   const from = envValue("RESEND_FROM_EMAIL");
   if (!apiKey || !from) {
-    console.info(`[email skipped: Resend not configured] ${subject}`);
-    return;
+    const missing = [!apiKey && "RESEND_API_KEY", !from && "RESEND_FROM_EMAIL"].filter(Boolean).join(", ");
+    console.info(`[email skipped: missing ${missing}] ${subject}`);
+    return `skipped: missing ${missing}`;
   }
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to, subject, text }),
-  });
-  if (!res.ok) console.error(`Resend failed (${res.status}): ${await res.text()}`);
-  else console.info(`[email sent] ${subject}`);
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to, subject, text }),
+    });
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 300);
+      console.error(`Resend failed (${res.status}): ${body}`);
+      return `failed ${res.status} (from ${from}): ${body}`;
+    }
+    console.info(`[email sent] ${subject}`);
+    return "sent";
+  } catch (err) {
+    console.error("Resend request failed", err);
+    return `failed: ${err instanceof Error ? err.message : "network error"}`;
+  }
 }
 
 async function sendSms(to: string, body: string): Promise<void> {
@@ -80,12 +92,15 @@ export async function notifyUser(
   }
 }
 
-/** Alerts the business about a new quick-quote request (email, plus a text if LEAD_ALERT_PHONE is set). */
-export async function notifyNewQuote(summary: string, name: string, town: string): Promise<void> {
+/**
+ * Alerts the business about a new quick-quote request (email, plus a text if LEAD_ALERT_PHONE is set).
+ * Returns the email delivery status so it can be stored with the request.
+ */
+export async function notifyNewQuote(summary: string, name: string, town: string): Promise<string> {
   try {
     const email = envValue("LEAD_ALERT_EMAIL") || "liftcrewnj@gmail.com";
     const phone = toE164(envValue("LEAD_ALERT_PHONE"));
-    await Promise.all([
+    const [status] = await Promise.all([
       sendEmail(
         email,
         `New quote request: ${name} (${town})`,
@@ -93,7 +108,9 @@ export async function notifyNewQuote(summary: string, name: string, town: string
       ),
       phone ? sendSms(phone, `LiftCrew quote: ${name}, ${town}. Check your email for details.`) : null,
     ]);
+    return status;
   } catch (err) {
     console.error("Quote alert failed", err);
+    return "failed: unexpected error";
   }
 }
