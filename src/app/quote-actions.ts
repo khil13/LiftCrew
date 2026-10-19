@@ -34,20 +34,28 @@ export async function requestQuote(_prev: QuoteState, formData: FormData): Promi
   }
 
   const flagged = quoteFlags(q);
-  const { error } = await admin.from("quote_requests").insert({
-    name: q.name,
-    phone: q.phone,
-    town: q.town,
-    move_date: q.move_date,
-    helpers: q.helpers,
-    details: q.details,
-    flagged_phrases: flagged,
-  });
-  if (error) {
+  const { data: saved, error } = await admin
+    .from("quote_requests")
+    .insert({
+      name: q.name,
+      phone: q.phone,
+      town: q.town,
+      move_date: q.move_date,
+      helpers: q.helpers,
+      details: q.details,
+      flagged_phrases: flagged,
+    })
+    .select("id")
+    .single();
+  if (error || !saved) {
     console.error("Quote insert failed", error);
     return { error: "We couldn't send your request. Please try again in a minute." };
   }
 
-  await notifyNewQuote(formatQuoteForAlert({ ...q, flagged }), q.name, q.town);
+  const alertStatus = await notifyNewQuote(formatQuoteForAlert({ ...q, flagged }), q.name, q.town);
+  await admin
+    .from("quote_requests")
+    .update({ alert_status: alertStatus.slice(0, 500) })
+    .eq("id", saved.id);
   return { sent: true };
 }
