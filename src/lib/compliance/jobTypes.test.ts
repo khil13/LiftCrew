@@ -22,6 +22,16 @@ describe("moderation", () => {
     ]);
   });
 
+  it("ignores truck-rental brand names but still catches hauling", () => {
+    expect(matchModerationPhrases("Load a 15' U-Haul, then a Uhaul trailer and a U Haul box")).toEqual([]);
+    expect(matchModerationPhrases("Can you haul my couch? I rented a U-Haul")).toEqual(["haul"]);
+  });
+
+  it("matches at the start of words only", () => {
+    expect(matchModerationPhrases("Can you do the delivery?")).toEqual(["deliver"]);
+    expect(matchModerationPhrases("Shalhaul street, apartment 2")).toEqual([]);
+  });
+
   it("does not flag labor-only descriptions", () => {
     expect(matchModerationPhrases("Load my rental truck, 2nd floor walkup, heavy dresser")).toEqual([]);
   });
