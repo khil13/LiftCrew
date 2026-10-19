@@ -321,6 +321,11 @@ $P -c "update helper_profiles set stripe_onboarded = true where id = '$H3'" >/de
 check $H3 ok   "same helper applies once payouts are set up" "insert into job_applications (job_id, helper_id) values ('$J8', '$H3')"
 check $C  fail "customers cannot change payment mode" "do \$\$ declare n int; begin update app_settings set value = '\"offline\"' where key = 'payment_mode'; get diagnostics n = row_count; if n = 0 then raise exception 'no rows'; end if; end \$\$"
 
+# Moderation word matching (0014)
+expect "U-Haul is not flagged"         "$($P -c "select cardinality(match_moderation_phrases('Load a 15'' U-Haul and a Uhaul trailer'))")" "0"
+expect "hauling is still flagged"      "$($P -c "select array_to_string(match_moderation_phrases('can you haul my couch? I rented a U-Haul'), ',')")" "haul"
+expect "delivery is flagged"           "$($P -c "select array_to_string(match_moderation_phrases('Can you do the delivery?'), ',')")" "deliver"
+
 # Quick quotes (0012): only the server writes them; only admins read them
 check $C  fail "visitors cannot insert quote requests" "insert into quote_requests (name, phone, town) values ('Q', '+19735550100', 'Irvington')"
 $P -c "insert into quote_requests (name, phone, town) values ('Q', '+19735550100', 'Irvington')" >/dev/null   # server (service role)
