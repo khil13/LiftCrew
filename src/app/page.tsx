@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Logo from "@/components/Logo";
 import QuoteForm from "@/components/QuoteForm";
+import ContactButtons from "@/components/ContactButtons";
+import { parseBusinessPhone } from "@/lib/contact";
+import { envValue } from "@/lib/env";
 import { getSession } from "@/lib/auth";
 import { getAllowedStates, getPaymentMode, getPlatformFeePercent } from "@/lib/settings";
 import { formatAllowedStates } from "@/lib/compliance/states";
@@ -39,6 +42,7 @@ export default async function LandingPage() {
   const offline = mode === "offline";
   const state = formatAllowedStates(allowed) || "New Jersey";
   const example = estimateJobPrice({ ...EXAMPLE, feePercent });
+  const phone = parseBusinessPhone(envValue("BUSINESS_PHONE"));
 
   const steps = [
     ["Post your job", "Add the address, date, hours, how many helpers you need, and the hourly rate you'll pay."],
@@ -93,6 +97,27 @@ export default async function LandingPage() {
             >
               Become a helper
             </Link>
+            {phone && (
+              <a
+                href={`tel:${phone.e164}`}
+                className="rounded-full px-3 py-2.5 hover:bg-slate-50"
+                aria-label={`Call LiftCrew at ${phone.display}`}
+              >
+                <span className="hidden md:inline">{phone.display}</span>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5 md:hidden"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
+            )}
             <Link
               href="/login"
               className="rounded-full border border-slate-200 px-4 py-2.5 transition-shadow hover:shadow-float"
@@ -150,6 +175,14 @@ export default async function LandingPage() {
           <a href="#quote" className="mt-6 inline-block text-sm font-semibold underline underline-offset-4">
             Rather talk to someone? Get a free quote, no account needed
           </a>
+          {phone && (
+            <p className="mt-2 text-sm text-slate-500">
+              Or call or text{" "}
+              <a href={`tel:${phone.e164}`} className="font-semibold text-slate-900 underline underline-offset-4">
+                {phone.display}
+              </a>
+            </p>
+          )}
         </section>
 
         {/* Quick quote */}
@@ -168,6 +201,12 @@ export default async function LandingPage() {
                 <li>✓ {MIN_JOB_HOURS}-hour minimum, priced by the hour</li>
                 <li>✓ Serving Irvington, Newark, Union, Maplewood &amp; all of {state}</li>
               </ul>
+              {phone && (
+                <div className="mt-6">
+                  <p className="text-sm font-semibold">Prefer to talk now?</p>
+                  <ContactButtons phone={phone} className="mt-2" />
+                </div>
+              )}
             </div>
             <QuoteForm />
           </div>
@@ -339,6 +378,13 @@ export default async function LandingPage() {
                     Become a helper
                   </Link>
                 </li>
+                {phone && (
+                  <li>
+                    <a href={`tel:${phone.e164}`} className="hover:underline">
+                      {phone.display}
+                    </a>
+                  </li>
+                )}
                 <li>
                   <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:underline">
                     {SUPPORT_EMAIL}

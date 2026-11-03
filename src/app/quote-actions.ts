@@ -1,7 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyNewQuote } from "@/lib/notify";
+import { confirmQuoteToCustomer, notifyNewQuote } from "@/lib/notify";
 import { QuoteSchema, formatQuoteForAlert, moveDateProblem, quoteFlags } from "@/lib/quotes";
 
 export type QuoteState = { error?: string; sent?: boolean };
@@ -52,10 +52,13 @@ export async function requestQuote(_prev: QuoteState, formData: FormData): Promi
     return { error: "We couldn't send your request. Please try again in a minute." };
   }
 
-  const alertStatus = await notifyNewQuote(formatQuoteForAlert({ ...q, flagged }), q.name, q.town);
+  const [alertStatus, confirmStatus] = await Promise.all([
+    notifyNewQuote(formatQuoteForAlert({ ...q, flagged }), q.name, q.town),
+    confirmQuoteToCustomer(q.phone, q.name),
+  ]);
   await admin
     .from("quote_requests")
-    .update({ alert_status: alertStatus.slice(0, 500) })
+    .update({ alert_status: alertStatus.slice(0, 500), confirm_status: confirmStatus.slice(0, 500) })
     .eq("id", saved.id);
   return { sent: true };
 }
