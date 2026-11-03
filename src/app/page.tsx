@@ -19,7 +19,7 @@ import { LEGAL_DOCS, SUPPORT_EMAIL } from "@/lib/legal";
 export const metadata: Metadata = {
   title: "LiftCrew · Moving help in New Jersey, by the hour",
   description:
-    "Book local moving helpers in New Jersey to load or unload your truck, pack, and lift heavy furniture. You bring the truck, we bring the muscle. Labor only, priced by the hour.",
+    "Local moving helpers in New Jersey to load or unload your truck, pack, and lift heavy furniture. One price, pay when it's done: no deposit, no hidden fees, free cancellation. You bring the truck.",
   alternates: { canonical: "/" },
 };
 
@@ -136,11 +136,11 @@ export default async function LandingPage() {
         {/* Hero */}
         <section className="pb-12 pt-10 text-center sm:pt-16">
           <h1 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight sm:text-5xl">
-            Moving help in {state}, by the hour.
+            {offline ? "Moving help. One price, pay when it's done." : `Moving help in ${state}, by the hour.`}
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-base text-slate-500 sm:text-lg">
-            You bring the truck, our crew brings the muscle. Local helpers to load, unload, pack, and carry the heavy
-            stuff.
+            Local helpers in {state} to load, unload, pack, and carry the heavy stuff, by the hour. You bring the truck,
+            our crew brings the muscle.
           </p>
 
           {/* Pill booking bar */}
@@ -172,9 +172,20 @@ export default async function LandingPage() {
           </Link>
 
           <ul className="mx-auto mt-6 flex max-w-3xl flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-slate-700">
-            <li>★ Rated helpers</li>
-            <li>You set the rate</li>
-            <li>{offline ? "Pay after the job" : "Paid only after the job"}</li>
+            {offline ? (
+              <>
+                <li>✓ No deposit, nothing upfront</li>
+                <li>✓ No hidden fees</li>
+                <li>✓ Free cancellation before the job</li>
+                {phone && <li>✓ Text your crew directly</li>}
+              </>
+            ) : (
+              <>
+                <li>★ Rated helpers</li>
+                <li>You set the rate</li>
+                <li>Paid only after the job</li>
+              </>
+            )}
           </ul>
           <a href="#quote" className="mt-6 inline-block text-sm font-semibold underline underline-offset-4">
             Rather talk to someone? Get a free quote, no account needed
@@ -202,6 +213,7 @@ export default async function LandingPage() {
               </p>
               <ul className="mt-5 space-y-2 text-slate-700">
                 <li>✓ Fast reply by call or text</li>
+                <li>✓ The price we text you is the total. No hidden fees</li>
                 <li>✓ {MIN_JOB_HOURS}-hour minimum, priced by the hour</li>
                 <li>
                   ✓ Serving{" "}

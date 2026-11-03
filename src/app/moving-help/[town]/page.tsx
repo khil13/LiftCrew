@@ -12,6 +12,10 @@ import { HOME_BASE, TOWNS, getTown } from "@/lib/towns";
 
 export const dynamicParams = false;
 
+// The payment promises on these static pages ("pay when it's done", "no
+// deposit", "free cancellation") match pay-in-person mode. Update them if
+// payments move to Stripe at booking.
+
 export function generateStaticParams() {
   return TOWNS.map((t) => ({ town: t.slug }));
 }
@@ -20,7 +24,7 @@ export function generateMetadata({ params }: { params: { town: string } }): Meta
   const town = getTown(params.town);
   if (!town) return {};
   const title = `Moving Help & Labor in ${town.name}, NJ | LiftCrew`;
-  const description = `${town.blurb} Hourly helpers, ${MIN_JOB_HOURS}-hour minimum. You bring the truck, we do the lifting. Free quote by call or text.`;
+  const description = `${town.blurb} One price, pay when it's done: no deposit, no hidden fees, free cancellation. ${MIN_JOB_HOURS}-hour minimum. You bring the truck.`;
   const path = `/moving-help/${town.slug}`;
   return {
     title,
@@ -52,7 +56,7 @@ export default function TownPage({ params }: { params: { town: string } }) {
     ],
     [
       `How much does moving help in ${town.name} cost?`,
-      `You pay by the hour for each helper, with a ${MIN_JOB_HOURS}-hour minimum. Send a quote request with your move details and we'll text you a price. Pay at the end of the job by cash, Cash App, or Zelle.`,
+      `You pay by the hour for each helper, with a ${MIN_JOB_HOURS}-hour minimum. Send a quote request with your move details and we'll text you one total price. There's no deposit and no hidden fees: you pay at the end of the job by cash, Cash App, or Zelle, and cancelling before the job is free.`,
     ],
   ];
   const faqJsonLd = {
@@ -90,12 +94,15 @@ export default function TownPage({ params }: { params: { town: string } }) {
         </p>
         <h1 className="mt-2 max-w-3xl text-3xl font-bold tracking-tight sm:text-5xl">Moving help in {town.name}, NJ</h1>
         <p className="mt-4 max-w-2xl text-lg leading-relaxed text-slate-500">{town.intro}</p>
+        <p className="mt-3 max-w-2xl text-lg font-semibold">One price, pay when it&apos;s done.</p>
         <ul className="mt-6 flex flex-wrap gap-2 text-sm">
           {[
+            "Pay when it's done",
+            "No deposit",
+            "No hidden fees",
+            "Free cancellation",
             `${MIN_JOB_HOURS}-hour minimum`,
-            "Priced by the hour",
             "Labor only: you bring the truck",
-            "Pay in person",
           ].map((b) => (
             <li key={b} className="rounded-full border border-slate-200 px-3 py-1.5 font-medium">
               {b}
