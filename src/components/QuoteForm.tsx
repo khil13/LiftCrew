@@ -5,7 +5,7 @@ import FormError from "@/components/FormError";
 import SubmitButton from "@/components/SubmitButton";
 import { requestQuote } from "@/app/quote-actions";
 
-export default function QuoteForm() {
+export default function QuoteForm({ defaultTown }: { defaultTown?: string } = {}) {
   const [state, action] = useFormState(requestQuote, {});
   const today = new Date().toISOString().slice(0, 10);
 
@@ -49,7 +49,15 @@ export default function QuoteForm() {
           <label htmlFor="q-town" className="label">
             Town or ZIP
           </label>
-          <input id="q-town" name="town" className="input" placeholder="Irvington" required maxLength={100} />
+          <input
+            id="q-town"
+            name="town"
+            className="input"
+            placeholder="Irvington"
+            defaultValue={defaultTown}
+            required
+            maxLength={100}
+          />
         </div>
         <div>
           <label htmlFor="q-date" className="label">

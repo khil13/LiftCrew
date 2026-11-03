@@ -2,7 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { LEGAL_PATHS } from "@/lib/legal";
 
-const PUBLIC_PATHS = ["/", "/login", "/auth/callback", ...LEGAL_PATHS];
+const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/robots.txt", "/sitemap.xml", ...LEGAL_PATHS];
+/** Public marketing sections (service-area pages). */
+const PUBLIC_PREFIXES = ["/moving-help"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -29,7 +31,10 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.includes(path) || path.startsWith("/api/");
+  const isPublic =
+    PUBLIC_PATHS.includes(path) ||
+    path.startsWith("/api/") ||
+    PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
