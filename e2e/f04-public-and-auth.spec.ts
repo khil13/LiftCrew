@@ -18,6 +18,22 @@ test.describe("F04 public files and pages", () => {
   });
 });
 
+test.describe("F06 link previews", () => {
+  for (const path of ["/", "/moving-help", "/moving-help/newark-nj"]) {
+    test(`F06-H1 ${path} has a title and a 1200x630 preview image that loads`, async ({ page, request }) => {
+      await page.goto(path);
+      await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", /\S/);
+      const img = await page.locator('meta[property="og:image"]').getAttribute("content");
+      expect(img).toBeTruthy();
+      await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute("content", "1200");
+      // og:image is an absolute liftcrewnj.com URL; fetch the same path from this server.
+      const res = await request.get(new URL(img!).pathname + new URL(img!).search);
+      expect(res.status()).toBe(200);
+      expect(res.headers()["content-type"]).toContain("image/png");
+    });
+  }
+});
+
 test.describe("F05 logged-out access", () => {
   for (const path of ["/home", "/jobs", "/messages", "/admin", "/settings", "/earnings", "/billing"]) {
     test(`F05-N1 ${path} sends a logged-out visitor to /login`, async ({ page }) => {

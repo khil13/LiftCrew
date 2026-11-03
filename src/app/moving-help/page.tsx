@@ -12,6 +12,14 @@ export const metadata: Metadata = {
   description:
     "Hourly moving labor from our base in Irvington, NJ: Newark, Union, Maplewood, East Orange, Hillside, South Orange, Orange, and the rest of New Jersey. You bring the truck, we do the lifting.",
   alternates: { canonical: "/moving-help" },
+  openGraph: {
+    title: "Moving Help in Essex & Union County, NJ | LiftCrew",
+    description: "Local moving labor by the hour. One price, pay when it's done.",
+    url: "/moving-help",
+    siteName: "LiftCrew",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function AreasPage() {

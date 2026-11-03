@@ -21,6 +21,14 @@ export const metadata: Metadata = {
   description:
     "Local moving helpers in New Jersey to load or unload your truck, pack, and lift heavy furniture. One price, pay when it's done: no deposit, no hidden fees, free cancellation. You bring the truck.",
   alternates: { canonical: "/" },
+  openGraph: {
+    title: "LiftCrew · Moving help in North Jersey. One price, pay when it's done.",
+    description: "Local helpers to load, unload, pack and carry. No deposit, no hidden fees, free cancellation.",
+    url: "/",
+    siteName: "LiftCrew",
+    type: "website",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 const EXAMPLE = { helpers: 2, hours: 3, rateCents: 3000 };

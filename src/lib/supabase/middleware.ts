@@ -2,7 +2,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { LEGAL_PATHS } from "@/lib/legal";
 
-const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/robots.txt", "/sitemap.xml", ...LEGAL_PATHS];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/auth/callback",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/opengraph-image",
+  ...LEGAL_PATHS,
+];
 /** Public marketing sections (service-area pages). */
 const PUBLIC_PREFIXES = ["/moving-help"];
 

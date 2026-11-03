@@ -31,6 +31,7 @@ export function generateMetadata({ params }: { params: { town: string } }): Meta
     description,
     alternates: { canonical: path },
     openGraph: { title, description, url: path, siteName: "LiftCrew", type: "website" },
+    twitter: { card: "summary_large_image" },
   };
 }
 
