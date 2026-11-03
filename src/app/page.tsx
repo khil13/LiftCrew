@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import Logo from "@/components/Logo";
 import QuoteForm from "@/components/QuoteForm";
 import ContactButtons from "@/components/ContactButtons";
+import BusinessJsonLd from "@/components/BusinessJsonLd";
+import { TOWNS } from "@/lib/towns";
 import { parseBusinessPhone } from "@/lib/contact";
 import { envValue } from "@/lib/env";
 import { getSession } from "@/lib/auth";
@@ -18,6 +20,7 @@ export const metadata: Metadata = {
   title: "LiftCrew · Moving help in New Jersey, by the hour",
   description:
     "Book local moving helpers in New Jersey to load or unload your truck, pack, and lift heavy furniture. You bring the truck, we bring the muscle. Labor only, priced by the hour.",
+  alternates: { canonical: "/" },
 };
 
 const EXAMPLE = { helpers: 2, hours: 3, rateCents: 3000 };
@@ -85,6 +88,7 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      <BusinessJsonLd phone={phone} />
       <header className="border-b border-slate-200">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:h-20 sm:px-6">
           <Link href="/" aria-label="LiftCrew home">
@@ -199,7 +203,21 @@ export default async function LandingPage() {
               <ul className="mt-5 space-y-2 text-slate-700">
                 <li>✓ Fast reply by call or text</li>
                 <li>✓ {MIN_JOB_HOURS}-hour minimum, priced by the hour</li>
-                <li>✓ Serving Irvington, Newark, Union, Maplewood &amp; all of {state}</li>
+                <li>
+                  ✓ Serving{" "}
+                  {TOWNS.slice(0, 4).map((t, i) => (
+                    <span key={t.slug}>
+                      {i > 0 && ", "}
+                      <Link href={`/moving-help/${t.slug}`} className="underline underline-offset-2">
+                        {t.name}
+                      </Link>
+                    </span>
+                  ))}{" "}
+                  &amp;{" "}
+                  <Link href="/moving-help" className="underline underline-offset-2">
+                    all of {state}
+                  </Link>
+                </li>
               </ul>
               {phone && (
                 <div className="mt-6">
@@ -358,7 +376,7 @@ export default async function LandingPage() {
 
       <footer className="border-t border-slate-200 bg-slate-50">
         <div className="mx-auto max-w-5xl px-4 py-10 text-sm sm:px-6">
-          <div className="grid gap-8 sm:grid-cols-3">
+          <div className="grid gap-8 sm:grid-cols-4">
             <div>
               <Logo />
               <p className="mt-3 text-slate-500">
@@ -390,6 +408,18 @@ export default async function LandingPage() {
                     {SUPPORT_EMAIL}
                   </a>
                 </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold">Areas we serve</h3>
+              <ul className="mt-3 space-y-2 text-slate-500">
+                {TOWNS.map((t) => (
+                  <li key={t.slug}>
+                    <Link href={`/moving-help/${t.slug}`} className="hover:underline">
+                      Moving help in {t.name}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
             <div>
