@@ -1,13 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useFormState } from "react-dom";
 import FormError from "@/components/FormError";
 import SubmitButton from "@/components/SubmitButton";
 import { requestQuote } from "@/app/quote-actions";
+import { todayInNewJersey } from "@/lib/quotes";
 
 export default function QuoteForm({ defaultTown }: { defaultTown?: string } = {}) {
   const [state, action] = useFormState(requestQuote, {});
-  const today = new Date().toISOString().slice(0, 10);
+  // Worked out in the browser after load: the server runs in UTC (already
+  // tomorrow on NJ evenings) and town pages are pre-built on deploy day.
+  const [today, setToday] = useState<string>();
+  useEffect(() => setToday(todayInNewJersey()), []);
 
   if (state.sent) {
     return (

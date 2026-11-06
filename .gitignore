@@ -7,3 +7,7 @@ next-env.d.ts
 .env*.local
 .vercel
 supabase/.temp/
+
+# Playwright
+/test-results/
+/playwright-report/

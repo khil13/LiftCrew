@@ -33,6 +33,12 @@ export const QuoteSchema = z.object({
 
 export type QuoteInput = z.output<typeof QuoteSchema>;
 
+/** Today's date (YYYY-MM-DD) in New Jersey, where every job is. */
+export function todayInNewJersey(now = new Date()): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now);
+}
+
 /** Rejects dates in the past or more than 180 days out (dates are YYYY-MM-DD, compared in UTC). */
 export function moveDateProblem(date: string | null, today = new Date()): string | null {
   if (!date) return null;
