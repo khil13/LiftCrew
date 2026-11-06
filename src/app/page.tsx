@@ -12,7 +12,7 @@ import { getSession } from "@/lib/auth";
 import { getAllowedStates, getPaymentMode, getPlatformFeePercent } from "@/lib/settings";
 import { formatAllowedStates } from "@/lib/compliance/states";
 import { ALLOWED_JOB_TYPES, JOB_TYPE_LABELS } from "@/lib/compliance/jobTypes";
-import { MIN_JOB_HOURS, estimateJobPrice } from "@/lib/pricing";
+import { MIN_JOB_HOURS, SUGGESTED_RATE_CENTS, TYPICAL_JOBS, estimateJobPrice } from "@/lib/pricing";
 import { formatCents } from "@/lib/format";
 import { LEGAL_DOCS, SUPPORT_EMAIL } from "@/lib/legal";
 
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
-const EXAMPLE = { helpers: 2, hours: 3, rateCents: 3000 };
+const EXAMPLE = { helpers: 2, hours: 3, rateCents: SUGGESTED_RATE_CENTS };
 
 function SearchOrb() {
   return (
@@ -307,7 +307,8 @@ export default async function LandingPage() {
 
         {/* Pricing */}
         <section
-          className="grid gap-8 border-t border-slate-200 py-12 sm:grid-cols-2 sm:items-center"
+          id="prices"
+          className="grid scroll-mt-6 gap-8 border-t border-slate-200 py-12 sm:grid-cols-2 sm:items-start"
           aria-labelledby="pricing"
         >
           <div>
@@ -315,8 +316,36 @@ export default async function LandingPage() {
               Simple hourly pricing
             </h2>
             <p className="mt-3 leading-relaxed text-slate-500">
-              You choose the rate per helper ($15–$200 an hour). Every job has a {MIN_JOB_HOURS}-hour minimum, and most
-              moves use 2 helpers for 2–4 hours. You see the full price before you book.
+              {formatCents(SUGGESTED_RATE_CENTS)} an hour per helper is our suggested rate, and you can choose your own.
+              Every job has a {MIN_JOB_HOURS}-hour minimum. The total you see, service fee included, is the total you
+              pay{offline ? ": no deposit, nothing added later, and cancelling before the job is free." : "."}
+            </p>
+            <h3 className="mt-6 font-semibold">Typical prices</h3>
+            <ul className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+              {TYPICAL_JOBS.map((j) => (
+                <li key={j.label} className="flex items-center justify-between gap-4 py-3">
+                  <span>
+                    <span className="block font-medium text-slate-900">{j.label}</span>
+                    <span className="block text-sm text-slate-500">
+                      {j.helpers} helper{j.helpers > 1 ? "s" : ""} × {j.hours} hrs · {j.note}
+                    </span>
+                  </span>
+                  <span className="shrink-0 font-semibold">
+                    {formatCents(
+                      estimateJobPrice({
+                        helpers: j.helpers,
+                        hours: j.hours,
+                        rateCents: SUGGESTED_RATE_CENTS,
+                        feePercent,
+                      }).totalCents,
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-slate-500">
+              At {formatCents(SUGGESTED_RATE_CENTS)}/helper/hour, including the {feePercent}% service fee. Extra time is
+              billed by the hour.
             </p>
           </div>
           <div className="rounded-card border border-slate-200 p-6 shadow-float">

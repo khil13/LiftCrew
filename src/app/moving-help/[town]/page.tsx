@@ -166,6 +166,11 @@ export default function TownPage({ params }: { params: { town: string } }) {
               Tell us about your move and we&apos;ll call or text you with a price and available times. No account, no
               commitment.
             </p>
+            <p className="mt-3 text-sm">
+              <Link href="/#prices" className="font-semibold underline underline-offset-4">
+                See typical prices
+              </Link>
+            </p>
             {town.name !== HOME_BASE && (
               <p className="mt-3 text-sm text-slate-500">
                 We&apos;re based in nearby {HOME_BASE}, so {town.name} is part of our regular service area.
