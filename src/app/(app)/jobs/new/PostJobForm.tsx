@@ -13,7 +13,7 @@ import {
 } from "@/lib/compliance/jobTypes";
 import { matchModerationPhrases } from "@/lib/compliance/moderation";
 import { dollarsToCents, formatCents } from "@/lib/format";
-import { MAX_JOB_HOURS, MIN_JOB_HOURS, estimateJobPrice } from "@/lib/pricing";
+import { MAX_JOB_HOURS, MIN_JOB_HOURS, SUGGESTED_RATE_CENTS, estimateJobPrice } from "@/lib/pricing";
 import { postJob } from "./actions";
 
 const STEPS = ["Addresses", "Date & time", "Hours & helpers", "Details", "Review"] as const;
@@ -43,7 +43,7 @@ export default function PostJobForm({
   const [localStart, setLocalStart] = useState("");
   const [hours, setHours] = useState("3");
   const [helpers, setHelpers] = useState("2");
-  const [rate, setRate] = useState("30.00");
+  const [rate, setRate] = useState((SUGGESTED_RATE_CENTS / 100).toFixed(2));
   const [types, setTypes] = useState<JobType[]>(["loading"]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -208,7 +208,11 @@ export default function PostJobForm({
             className="input"
             value={rate}
             onChange={(e) => setRate(e.target.value)}
+            aria-describedby="pay_rate_hint"
           />
+          <p id="pay_rate_hint" className="mt-1 text-sm text-slate-500">
+            Suggested: {formatCents(SUGGESTED_RATE_CENTS)}. Fair pay gets more helpers to apply.
+          </p>
         </div>
       </div>
 

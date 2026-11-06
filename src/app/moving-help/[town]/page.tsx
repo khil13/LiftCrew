@@ -31,6 +31,7 @@ export function generateMetadata({ params }: { params: { town: string } }): Meta
     description,
     alternates: { canonical: path },
     openGraph: { title, description, url: path, siteName: "LiftCrew", type: "website" },
+    twitter: { card: "summary_large_image" },
   };
 }
 
@@ -164,6 +165,11 @@ export default function TownPage({ params }: { params: { town: string } }) {
             <p className="mt-3 leading-relaxed text-slate-500">
               Tell us about your move and we&apos;ll call or text you with a price and available times. No account, no
               commitment.
+            </p>
+            <p className="mt-3 text-sm">
+              <Link href="/#prices" className="font-semibold underline underline-offset-4">
+                See typical prices
+              </Link>
             </p>
             {town.name !== HOME_BASE && (
               <p className="mt-3 text-sm text-slate-500">

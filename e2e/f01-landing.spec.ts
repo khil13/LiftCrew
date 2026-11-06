@@ -23,6 +23,13 @@ test.describe("F01 landing", () => {
     expect(ld.areaServed.length).toBeGreaterThan(3);
   });
 
+  test("F01-H3 typical prices are listed with all-in totals", async ({ page }) => {
+    await page.goto("/#prices");
+    await expect(page.getByRole("heading", { name: "Typical prices" })).toBeVisible();
+    await expect(page.locator("#prices li")).toHaveCount(4);
+    await expect(page.locator("#prices li").first()).toContainText("$");
+  });
+
   test("F01-E1 no sideways scroll", async ({ page }) => {
     await page.goto("/");
     expect(await overflowsX(page)).toBe(false);
