@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { QuoteSchema, formatQuoteForAlert, moveDateProblem, quoteFlags } from "./quotes";
+import { QuoteSchema, formatQuoteForAlert, moveDateProblem, quoteFlags, todayInNewJersey } from "./quotes";
 
 const base = { name: "Dana", phone: "(973) 555-0142", town: "Irvington", helpers: "2", details: "", website: "" };
 
@@ -38,5 +38,13 @@ describe("quote alerts", () => {
     const flagged = quoteFlags(q);
     expect(flagged).toContain("haul");
     expect(formatQuoteForAlert({ ...q, flagged })).toMatch(/labor only/);
+  });
+});
+
+describe("todayInNewJersey", () => {
+  it("uses the New Jersey date, not UTC, late in the evening", () => {
+    expect(todayInNewJersey(new Date("2026-11-07T02:30:00Z"))).toBe("2026-11-06");
+    expect(todayInNewJersey(new Date("2027-07-01T03:59:00Z"))).toBe("2027-06-30");
+    expect(todayInNewJersey(new Date("2026-11-06T15:00:00Z"))).toBe("2026-11-06");
   });
 });
