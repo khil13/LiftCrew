@@ -101,9 +101,15 @@ export default function PostJobForm({
         }
       }}
     >
-      <ol className="flex gap-1" aria-label="Progress">
+      <p className="text-sm font-semibold text-brand-600" aria-hidden>
+        Step {step + 1} of {STEPS.length}
+      </p>
+      <ol className="flex gap-1.5" aria-label="Progress">
         {STEPS.map((label, i) => (
-          <li key={label} className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-brand-600" : "bg-slate-200"}`}>
+          <li
+            key={label}
+            className={`h-2 flex-1 rounded-full transition-colors ${i <= step ? "bg-brand-600" : "bg-slate-200"}`}
+          >
             <span className="sr-only">
               {label}
               {i === step ? " (current)" : ""}
@@ -111,7 +117,7 @@ export default function PostJobForm({
           </li>
         ))}
       </ol>
-      <h2 className="text-lg font-semibold">{STEPS[step]}</h2>
+      <h2 className="text-xl font-bold tracking-tight">{STEPS[step]}</h2>
 
       {/* Every step stays mounted so all fields are submitted together. */}
       <div className={step === 0 ? "space-y-4" : "hidden"}>
