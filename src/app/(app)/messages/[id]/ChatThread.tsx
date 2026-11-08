@@ -80,7 +80,7 @@ export default function ChatThread({
               >
                 {!mine && <p className="text-xs font-semibold text-slate-500">{names[m.sender_id] ?? "Member"}</p>}
                 <p className="whitespace-pre-line break-words">{m.body}</p>
-                <p className={`mt-0.5 text-[10px] ${mine ? "text-brand-100" : "text-slate-400"}`}>
+                <p className={`mt-0.5 text-[10px] ${mine ? "text-brand-100" : "text-slate-500"}`}>
                   {new Date(m.created_at).toLocaleTimeString("en-US", {
                     timeZone: TIME_ZONE,
                     hour: "numeric",

@@ -1,5 +1,6 @@
 "use client";
 
+import { Spinner } from "@/components/SubmitButton";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -78,6 +79,7 @@ export default function LoginForm({ intent }: { intent?: "helper" }) {
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button className="btn-primary" disabled={busy}>
+          {busy && <Spinner />}
           {busy ? "Checking…" : "Continue"}
         </button>
         <button type="button" className="w-full text-sm text-slate-600 underline" onClick={() => setSentTo(null)}>
@@ -89,7 +91,11 @@ export default function LoginForm({ intent }: { intent?: "helper" }) {
 
   return (
     <form onSubmit={sendCode} className="space-y-4">
-      <div className="grid grid-cols-2 rounded-lg bg-slate-200 p-1 text-sm font-medium">
+      <div
+        className="grid grid-cols-2 rounded-xl bg-slate-100 p-1 text-sm font-semibold"
+        role="group"
+        aria-label="Sign in with"
+      >
         {(["email", "phone"] as const).map((m) => (
           <button
             key={m}
@@ -99,7 +105,8 @@ export default function LoginForm({ intent }: { intent?: "helper" }) {
               setIdentifier("");
               setError(null);
             }}
-            className={`rounded-md py-2 ${method === m ? "bg-white shadow-sm" : "text-slate-600"}`}
+            aria-pressed={method === m}
+            className={`min-h-11 rounded-lg py-2 transition-colors ${method === m ? "bg-white text-brand-600 shadow-card" : "text-slate-600 hover:text-slate-900"}`}
           >
             {m === "email" ? "Email" : "Phone"}
           </button>
@@ -122,6 +129,7 @@ export default function LoginForm({ intent }: { intent?: "helper" }) {
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button className="btn-primary" disabled={busy}>
+        {busy && <Spinner />}
         {busy ? "Sending…" : "Send code"}
       </button>
     </form>

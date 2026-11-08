@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import Logo from "@/components/Logo";
 import QuoteForm from "@/components/QuoteForm";
 import ContactButtons from "@/components/ContactButtons";
 import BusinessJsonLd from "@/components/BusinessJsonLd";
+import SiteHeader from "@/components/SiteHeader";
+import SiteFooter from "@/components/SiteFooter";
+import MobileCtaBar from "@/components/MobileCtaBar";
+import Icon, { IconBadge, type IconName } from "@/components/Icon";
+import { PRIMARY_CTA, SECONDARY_CTA } from "@/lib/cta";
 import { TOWNS } from "@/lib/towns";
 import { parseBusinessPhone } from "@/lib/contact";
 import { envValue } from "@/lib/env";
@@ -14,7 +18,6 @@ import { formatAllowedStates } from "@/lib/compliance/states";
 import { ALLOWED_JOB_TYPES, JOB_TYPE_LABELS } from "@/lib/compliance/jobTypes";
 import { MIN_JOB_HOURS, SUGGESTED_RATE_CENTS, TYPICAL_JOBS, estimateJobPrice } from "@/lib/pricing";
 import { formatCents } from "@/lib/format";
-import { LEGAL_DOCS, SUPPORT_EMAIL } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "LiftCrew · Moving help in New Jersey, by the hour",
@@ -33,16 +36,6 @@ export const metadata: Metadata = {
 
 const EXAMPLE = { helpers: 2, hours: 3, rateCents: SUGGESTED_RATE_CENTS };
 
-function SearchOrb() {
-  return (
-    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white">
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5}>
-        <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </span>
-  );
-}
-
 export default async function LandingPage() {
   if (await getSession()) redirect("/home");
   const [mode, allowed, feePercent] = await Promise.all([
@@ -54,6 +47,58 @@ export default async function LandingPage() {
   const state = formatAllowedStates(allowed) || "New Jersey";
   const example = estimateJobPrice({ ...EXAMPLE, feePercent });
   const phone = parseBusinessPhone(envValue("BUSINESS_PHONE"));
+  const smallMove = TYPICAL_JOBS[1];
+  const smallMoveTotal = estimateJobPrice({
+    helpers: smallMove.helpers,
+    hours: smallMove.hours,
+    rateCents: SUGGESTED_RATE_CENTS,
+    feePercent,
+  }).totalCents;
+
+  const trust: [IconName, string][] = offline
+    ? [
+        ["cash", "No deposit, nothing upfront"],
+        ["tag", "No hidden fees"],
+        ["calendar", "Free cancellation before the job"],
+        ["pin", "Local New Jersey helpers"],
+      ]
+    : [
+        ["cash", "Paid only after the job"],
+        ["tag", "Clear hourly pricing"],
+        ["users", "You choose your crew"],
+        ["pin", "Local New Jersey helpers"],
+      ];
+
+  const reasons: [IconName, string, string][] = [
+    [
+      "tag",
+      "One clear price",
+      "See the full total, service fee included, before you book. If a job runs long, you agree on any extra time first.",
+    ],
+    offline
+      ? ["cash", "Pay when it's done", "No deposit and nothing upfront. Pay at the end by cash, Cash App, or Zelle."]
+      : ["cash", "Paid only after the job", "Your payment is held and released to your crew after the work is done."],
+    offline
+      ? ["calendar", "Free cancellation", "Plans change. Cancel any time before the job starts, at no cost."]
+      : ["calendar", "Flexible cancellation", "Cancel more than 24 hours ahead for a full refund."],
+    [
+      "pin",
+      "Local to North Jersey",
+      "Based in Irvington and serving Essex and Union County: walk-ups, tight stairs, and street parking included.",
+    ],
+    [
+      "users",
+      "You choose your crew",
+      "See each helper's rating, experience, and jobs completed before you accept them.",
+    ],
+    [
+      "chat",
+      "Talk to a real person",
+      phone
+        ? `Call or text us at ${phone.display}, or message your crew right in the app.`
+        : "Request a free quote and we'll call or text you back. Message your crew right in the app.",
+    ],
+  ];
 
   const steps = [
     ["Post your job", "Add the address, date, hours, how many helpers you need, and the hourly rate you'll pay."],
@@ -95,154 +140,145 @@ export default async function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-navy pb-24 sm:pb-0">
       <BusinessJsonLd phone={phone} />
-      <header className="border-b border-slate-200">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:h-20 sm:px-6">
-          <Link href="/" aria-label="LiftCrew home">
-            <Logo />
-          </Link>
-          <nav className="flex items-center gap-2 text-sm font-semibold">
-            <Link
-              href="/login?intent=helper"
-              className="hidden rounded-full px-4 py-2.5 hover:bg-slate-50 sm:inline-block"
-            >
-              Become a helper
-            </Link>
-            {phone && (
-              <a
-                href={`tel:${phone.e164}`}
-                className="rounded-full px-3 py-2.5 hover:bg-slate-50"
-                aria-label={`Call LiftCrew at ${phone.display}`}
-              >
-                <span className="hidden md:inline">{phone.display}</span>
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5 md:hidden"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </a>
-            )}
-            <Link
-              href="/login"
-              className="rounded-full border border-slate-200 px-4 py-2.5 transition-shadow hover:shadow-float"
-            >
-              Sign in
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader phone={phone} />
 
-      <main className="mx-auto max-w-5xl px-4 sm:px-6">
+      <main className="bg-white">
         {/* Hero */}
-        <section className="pb-12 pt-10 text-center sm:pt-16">
-          <h1 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight sm:text-5xl">
-            {offline ? "Moving help. One price, pay when it's done." : `Moving help in ${state}, by the hour.`}
-          </h1>
-          <p className="mx-auto mt-4 max-w-xl text-base text-slate-500 sm:text-lg">
-            Local helpers in {state} to load, unload, pack, and carry the heavy stuff, by the hour. You bring the truck,
-            our crew brings the muscle.
-          </p>
+        <section className="bg-gradient-to-b from-brand-50 to-slate-50">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 pb-14 pt-10 sm:px-6 sm:pt-16 lg:grid-cols-[1.15fr_1fr] lg:items-center lg:pb-14">
+            <div>
+              <p className="eyebrow">Local moving help · Essex &amp; Union County, NJ</p>
+              <h1 className="mt-3 text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-[3.4rem]">
+                {offline ? "Moving help. One price, pay when it's done." : `Moving help in ${state}, by the hour.`}
+              </h1>
+              <p className="mt-5 max-w-xl text-lg leading-relaxed text-slate-600">
+                Local helpers in {state} to load, unload, pack, and carry the heavy stuff, by the hour. You bring the
+                truck, our crew brings the muscle.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link href={PRIMARY_CTA.href} className="btn-primary min-h-14 px-8 text-lg sm:w-auto">
+                  {PRIMARY_CTA.label}
+                  <Icon name="arrow" className="h-5 w-5" />
+                </Link>
+                <a href={SECONDARY_CTA.href} className="btn-secondary min-h-14 px-8 text-lg sm:w-auto">
+                  {SECONDARY_CTA.label}
+                </a>
+              </div>
+              <p className="mt-4 text-sm text-slate-500">
+                Free quotes need no account.
+                {phone && (
+                  <>
+                    {" "}
+                    Or call or text{" "}
+                    <a href={`tel:${phone.e164}`} className="link">
+                      {phone.display}
+                    </a>
+                    .
+                  </>
+                )}
+              </p>
+            </div>
 
-          {/* Pill booking bar */}
-          <Link
-            href="/login?intent=hire"
-            className="mx-auto mt-8 flex max-w-3xl items-center rounded-full border border-slate-200 bg-white p-2 pl-6 text-left shadow-float transition-shadow hover:shadow-lg"
-          >
-            <span className="min-w-0 flex-1 sm:hidden">
-              <span className="block text-sm font-semibold">Book moving help</span>
-              <span className="block truncate text-xs text-slate-500">
-                Anywhere in {state} · Any day · {MIN_JOB_HOURS}-hr min
-              </span>
-            </span>
-            <span className="hidden min-w-0 flex-1 grid-cols-3 divide-x divide-slate-200 sm:grid">
-              <span className="pr-6">
-                <span className="block text-xs font-semibold">Where</span>
-                <span className="block truncate text-sm text-slate-500">Anywhere in {state}</span>
-              </span>
-              <span className="px-6">
-                <span className="block text-xs font-semibold">When</span>
-                <span className="block text-sm text-slate-500">Same day or ahead</span>
-              </span>
-              <span className="px-6">
-                <span className="block text-xs font-semibold">Crew</span>
-                <span className="block text-sm text-slate-500">1–4 helpers · {MIN_JOB_HOURS}-hr min</span>
-              </span>
-            </span>
-            <SearchOrb />
-          </Link>
-
-          <ul className="mx-auto mt-6 flex max-w-3xl flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-slate-700">
-            {offline ? (
-              <>
-                <li>✓ No deposit, nothing upfront</li>
-                <li>✓ No hidden fees</li>
-                <li>✓ Free cancellation before the job</li>
-                {phone && <li>✓ Text your crew directly</li>}
-              </>
-            ) : (
-              <>
-                <li>★ Rated helpers</li>
-                <li>You set the rate</li>
-                <li>Paid only after the job</li>
-              </>
-            )}
-          </ul>
-          <a href="#quote" className="mt-6 inline-block text-sm font-semibold underline underline-offset-4">
-            Rather talk to someone? Get a free quote, no account needed
-          </a>
-          {phone && (
-            <p className="mt-2 text-sm text-slate-500">
-              Or call or text{" "}
-              <a href={`tel:${phone.e164}`} className="font-semibold text-slate-900 underline underline-offset-4">
-                {phone.display}
+            {/* Price preview card */}
+            <div className="rounded-card border border-slate-200 bg-white p-6 shadow-float sm:p-8">
+              <p className="text-sm font-semibold text-slate-500">Example: {smallMove.label.toLowerCase()}</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {smallMove.helpers} helpers × {smallMove.hours} hours · {smallMove.note}
+              </p>
+              <p className="mt-4 flex items-baseline gap-2">
+                <span className="text-5xl font-extrabold tracking-tight text-slate-900">
+                  {formatCents(smallMoveTotal)}
+                </span>
+                <span className="text-slate-500">total</span>
+              </p>
+              <ul className="mt-6 space-y-3 border-t border-slate-200 pt-6 text-slate-700">
+                {[
+                  `Anywhere in ${state}`,
+                  "Same day or book ahead",
+                  `1–4 helpers · ${MIN_JOB_HOURS}-hour minimum`,
+                  offline ? "Pay at the end: cash, Cash App, or Zelle" : "Paid only after the job",
+                ].map((x) => (
+                  <li key={x} className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                      <Icon name="check" className="h-4 w-4" />
+                    </span>
+                    {x}
+                  </li>
+                ))}
+              </ul>
+              <Link href={PRIMARY_CTA.href} className="btn-primary mt-7">
+                {PRIMARY_CTA.label}
+              </Link>
+              <a href="#prices" className="mt-3 block text-center text-sm font-semibold text-brand-600 hover:underline">
+                See all typical prices
               </a>
-            </p>
-          )}
+            </div>
+          </div>
+
+          {/* Trust strip */}
+          <div className="mx-auto max-w-6xl px-4 pb-12 sm:px-6">
+            <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {trust.map(([icon, text]) => (
+                <li
+                  key={text}
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-card"
+                >
+                  <Icon name={icon} className="h-5 w-5 shrink-0 text-brand-600" />
+                  {text}
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
 
         {/* Quick quote */}
-        <section id="quote" className="scroll-mt-6 border-t border-slate-200 py-12" aria-labelledby="quote-title">
-          <div className="grid gap-8 sm:grid-cols-2 sm:items-start">
+        <section id="quote" className="scroll-mt-20 bg-white" aria-labelledby="quote-title">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-start">
             <div>
-              <h2 id="quote-title" className="text-2xl font-bold tracking-tight">
+              <p className="eyebrow">Free quote</p>
+              <h2 id="quote-title" className="section-title mt-2">
                 Get a free quote
               </h2>
-              <p className="mt-3 leading-relaxed text-slate-500">
+              <p className="mt-4 text-lg leading-relaxed text-slate-600">
                 Tell us about your move and we&apos;ll call or text you with a price and available times. No account, no
                 commitment.
               </p>
-              <ul className="mt-5 space-y-2 text-slate-700">
-                <li>✓ Fast reply by call or text</li>
-                <li>✓ The price we text you is the total. No hidden fees</li>
-                <li>✓ {MIN_JOB_HOURS}-hour minimum, priced by the hour</li>
-                <li>
-                  ✓ Serving{" "}
-                  {TOWNS.slice(0, 4).map((t, i) => (
-                    <span key={t.slug}>
-                      {i > 0 && ", "}
-                      <Link href={`/moving-help/${t.slug}`} className="underline underline-offset-2">
-                        {t.name}
-                      </Link>
-                    </span>
-                  ))}{" "}
-                  &amp;{" "}
-                  <Link href="/moving-help" className="underline underline-offset-2">
-                    all of {state}
-                  </Link>
+              <ul className="mt-6 space-y-3 text-slate-700">
+                {[
+                  "Fast reply by call or text",
+                  "The price we text you is the total. No hidden fees",
+                  `${MIN_JOB_HOURS}-hour minimum, priced by the hour`,
+                ].map((x) => (
+                  <li key={x} className="flex items-start gap-3">
+                    <Icon name="check" className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+                    {x}
+                  </li>
+                ))}
+                <li className="flex items-start gap-3">
+                  <Icon name="pin" className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+                  <span>
+                    Serving{" "}
+                    {TOWNS.slice(0, 4).map((t, i) => (
+                      <span key={t.slug}>
+                        {i > 0 && ", "}
+                        <Link href={`/moving-help/${t.slug}`} className="link">
+                          {t.name}
+                        </Link>
+                      </span>
+                    ))}{" "}
+                    &amp;{" "}
+                    <Link href="/moving-help" className="link">
+                      all of {state}
+                    </Link>
+                  </span>
                 </li>
               </ul>
               {phone && (
-                <div className="mt-6">
-                  <p className="text-sm font-semibold">Prefer to talk now?</p>
-                  <ContactButtons phone={phone} className="mt-2" />
+                <div className="mt-8 rounded-card bg-slate-50 p-5">
+                  <p className="font-semibold text-slate-900">Prefer to talk now?</p>
+                  <ContactButtons phone={phone} className="mt-3" />
                 </div>
               )}
             </div>
@@ -250,245 +286,240 @@ export default async function LandingPage() {
           </div>
         </section>
 
+        {/* Why choose LiftCrew */}
+        <section className="bg-slate-50" aria-labelledby="why">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+            <div className="max-w-2xl">
+              <p className="eyebrow">Why LiftCrew</p>
+              <h2 id="why" className="section-title mt-2">
+                Why choose LiftCrew?
+              </h2>
+              <p className="mt-4 text-lg text-slate-600">
+                Straightforward moving help from people in your area, with the price clear from the start.
+              </p>
+            </div>
+            <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {reasons.map(([icon, title, body]) => (
+                <li key={title} className="card p-6">
+                  <IconBadge name={icon} />
+                  <h3 className="mt-4 text-lg font-semibold">{title}</h3>
+                  <p className="mt-2 leading-relaxed text-slate-600">{body}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
         {/* How it works */}
-        <section className="border-t border-slate-200 py-12" aria-labelledby="how">
-          <h2 id="how" className="text-2xl font-bold tracking-tight">
-            How it works
-          </h2>
-          <ol className="mt-6 grid gap-4 sm:grid-cols-3">
-            {steps.map(([title, body], i) => (
-              <li key={title} className="card">
-                <span className="text-sm font-semibold text-brand-600">Step {i + 1}</span>
-                <h3 className="mt-1 text-lg font-semibold">{title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-500">{body}</p>
-              </li>
-            ))}
-          </ol>
+        <section id="how" className="scroll-mt-20 bg-white" aria-labelledby="how-title">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+            <p className="eyebrow">How it works</p>
+            <h2 id="how-title" className="section-title mt-2">
+              Booked in three steps
+            </h2>
+            <ol className="mt-10 grid gap-5 sm:grid-cols-3">
+              {steps.map(([title, body], i) => (
+                <li key={title} className="card p-6">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 text-lg font-bold text-white">
+                    {i + 1}
+                  </span>
+                  <h3 className="mt-4 text-lg font-semibold">{title}</h3>
+                  <p className="mt-2 leading-relaxed text-slate-600">{body}</p>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+              <Link href={PRIMARY_CTA.href} className="btn-primary sm:w-auto sm:px-8">
+                {PRIMARY_CTA.label}
+              </Link>
+              <a href={SECONDARY_CTA.href} className="btn-secondary sm:w-auto sm:px-8">
+                {SECONDARY_CTA.label}
+              </a>
+            </div>
+          </div>
         </section>
 
         {/* Services */}
-        <section className="border-t border-slate-200 py-12" aria-labelledby="services">
-          <h2 id="services" className="text-2xl font-bold tracking-tight">
-            What our helpers do
-          </h2>
-          <p className="mt-2 text-slate-500">
-            Labor only. Rent a truck or container yourself (U-Haul, Penske, PODS) and we&apos;ll load and unload it.
-          </p>
-          <div className="mt-6 grid gap-x-10 sm:grid-cols-2">
-            <div>
-              <h3 className="text-sm font-semibold">Included</h3>
-              <ul className="mt-1 divide-y divide-slate-200">
-                {ALLOWED_JOB_TYPES.map((t) => (
-                  <li key={t} className="flex items-center gap-3 py-3">
-                    <span className="text-brand-600">✓</span>
-                    {JOB_TYPE_LABELS[t]}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="mt-6 sm:mt-0">
-              <h3 className="text-sm font-semibold">Not included</h3>
-              <ul className="mt-1 divide-y divide-slate-200 text-slate-500">
-                {[
-                  "Driving your truck or belongings",
-                  "Bringing a truck or trailer",
-                  "Hauling, delivery, or storage",
-                  `Moves outside ${state}`,
-                ].map((x) => (
-                  <li key={x} className="flex items-center gap-3 py-3">
-                    <span>✕</span>
-                    <span>{x}</span>
-                  </li>
-                ))}
-              </ul>
+        <section className="bg-slate-50" aria-labelledby="services">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+            <p className="eyebrow">Services</p>
+            <h2 id="services" className="section-title mt-2">
+              What our helpers do
+            </h2>
+            <p className="mt-4 max-w-2xl text-lg text-slate-600">
+              Labor only. Rent a truck or container yourself (U-Haul, Penske, PODS) and we&apos;ll load and unload it.
+            </p>
+            <div className="mt-10 grid gap-5 sm:grid-cols-2">
+              <div className="card p-6">
+                <h3 className="font-semibold">Included</h3>
+                <ul className="mt-2 divide-y divide-slate-200">
+                  {ALLOWED_JOB_TYPES.map((t) => (
+                    <li key={t} className="flex items-center gap-3 py-3 text-slate-700">
+                      <Icon name="check" className="h-5 w-5 shrink-0 text-brand-600" />
+                      {JOB_TYPE_LABELS[t]}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="card p-6">
+                <h3 className="font-semibold">Not included</h3>
+                <ul className="mt-2 divide-y divide-slate-200 text-slate-500">
+                  {[
+                    "Driving your truck or belongings",
+                    "Bringing a truck or trailer",
+                    "Hauling, delivery, or storage",
+                    `Moves outside ${state}`,
+                  ].map((x) => (
+                    <li key={x} className="flex items-center gap-3 py-3">
+                      <Icon name="x" className="h-5 w-5 shrink-0 text-slate-400" />
+                      <span>{x}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
         </section>
 
         {/* Pricing */}
-        <section
-          id="prices"
-          className="grid scroll-mt-6 gap-8 border-t border-slate-200 py-12 sm:grid-cols-2 sm:items-start"
-          aria-labelledby="pricing"
-        >
-          <div>
-            <h2 id="pricing" className="text-2xl font-bold tracking-tight">
-              Simple hourly pricing
-            </h2>
-            <p className="mt-3 leading-relaxed text-slate-500">
-              {formatCents(SUGGESTED_RATE_CENTS)} an hour per helper is our suggested rate, and you can choose your own.
-              Every job has a {MIN_JOB_HOURS}-hour minimum. The total you see, service fee included, is the total you
-              pay{offline ? ": no deposit, nothing added later, and cancelling before the job is free." : "."}
-            </p>
-            <h3 className="mt-6 font-semibold">Typical prices</h3>
-            <ul className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
-              {TYPICAL_JOBS.map((j) => (
-                <li key={j.label} className="flex items-center justify-between gap-4 py-3">
-                  <span>
-                    <span className="block font-medium text-slate-900">{j.label}</span>
-                    <span className="block text-sm text-slate-500">
-                      {j.helpers} helper{j.helpers > 1 ? "s" : ""} × {j.hours} hrs · {j.note}
+        <section id="prices" className="scroll-mt-20 bg-white" aria-labelledby="pricing">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:items-start">
+            <div>
+              <p className="eyebrow">Pricing</p>
+              <h2 id="pricing" className="section-title mt-2">
+                Simple hourly pricing
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-slate-600">
+                {formatCents(SUGGESTED_RATE_CENTS)} an hour per helper is our suggested rate, and you can choose your
+                own. Every job has a {MIN_JOB_HOURS}-hour minimum. The total you see, service fee included, is the total
+                you pay{offline ? ": no deposit, nothing added later, and cancelling before the job is free." : "."}
+              </p>
+              <h3 className="mt-8 font-semibold">Typical prices</h3>
+              <ul className="mt-3 divide-y divide-slate-200 rounded-card border border-slate-200 bg-white px-5 shadow-card">
+                {TYPICAL_JOBS.map((j) => (
+                  <li key={j.label} className="flex items-center justify-between gap-4 py-4">
+                    <span>
+                      <span className="block font-semibold text-slate-900">{j.label}</span>
+                      <span className="block text-sm text-slate-500">
+                        {j.helpers} helper{j.helpers > 1 ? "s" : ""} × {j.hours} hrs · {j.note}
+                      </span>
                     </span>
-                  </span>
-                  <span className="shrink-0 font-semibold">
-                    {formatCents(
-                      estimateJobPrice({
-                        helpers: j.helpers,
-                        hours: j.hours,
-                        rateCents: SUGGESTED_RATE_CENTS,
-                        feePercent,
-                      }).totalCents,
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-xs text-slate-500">
-              At {formatCents(SUGGESTED_RATE_CENTS)}/helper/hour, including the {feePercent}% service fee. Extra time is
-              billed by the hour.
-            </p>
-          </div>
-          <div className="rounded-card border border-slate-200 p-6 shadow-float">
-            <p className="text-2xl font-bold">
-              {formatCents(EXAMPLE.rateCents)}
-              <span className="text-base font-normal text-slate-500"> / helper / hour</span>
-            </p>
-            <dl className="mt-5 space-y-3 text-slate-700">
-              <div className="flex justify-between">
-                <dt className="underline decoration-slate-300 underline-offset-4">
-                  {EXAMPLE.helpers} helpers × {EXAMPLE.hours} hours
-                </dt>
-                <dd>{formatCents(example.laborCents)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="underline decoration-slate-300 underline-offset-4">Service fee ({feePercent}%)</dt>
-                <dd>{formatCents(example.feeCents)}</dd>
-              </div>
-              <div className="flex justify-between border-t border-slate-200 pt-4 font-semibold text-slate-900">
-                <dt>Total</dt>
-                <dd>{formatCents(example.totalCents)}</dd>
-              </div>
-            </dl>
-            <Link href="/login?intent=hire" className="btn-primary mt-6">
-              Book helpers
-            </Link>
-            <p className="mt-3 text-center text-sm text-slate-500">
-              {offline ? "No payment now. Pay after the job." : "Paid only after the job is done."}
-            </p>
+                    <span className="shrink-0 text-lg font-bold text-slate-900">
+                      {formatCents(
+                        estimateJobPrice({
+                          helpers: j.helpers,
+                          hours: j.hours,
+                          rateCents: SUGGESTED_RATE_CENTS,
+                          feePercent,
+                        }).totalCents,
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-xs text-slate-500">
+                At {formatCents(SUGGESTED_RATE_CENTS)}/helper/hour, including the {feePercent}% service fee. Extra time
+                is billed by the hour.
+              </p>
+            </div>
+            <div className="rounded-card border border-slate-200 bg-white p-6 shadow-float sm:p-8">
+              <p className="text-3xl font-extrabold tracking-tight text-slate-900">
+                {formatCents(EXAMPLE.rateCents)}
+                <span className="text-base font-medium text-slate-500"> / helper / hour</span>
+              </p>
+              <dl className="mt-6 space-y-3 text-slate-700">
+                <div className="flex justify-between">
+                  <dt>
+                    {EXAMPLE.helpers} helpers × {EXAMPLE.hours} hours
+                  </dt>
+                  <dd>{formatCents(example.laborCents)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt>Service fee ({feePercent}%)</dt>
+                  <dd>{formatCents(example.feeCents)}</dd>
+                </div>
+                <div className="flex justify-between border-t border-slate-200 pt-4 text-lg font-bold text-slate-900">
+                  <dt>Total</dt>
+                  <dd>{formatCents(example.totalCents)}</dd>
+                </div>
+              </dl>
+              <Link href={PRIMARY_CTA.href} className="btn-primary mt-7">
+                {PRIMARY_CTA.label}
+              </Link>
+              <p className="mt-3 text-center text-sm text-slate-500">
+                {offline ? "No payment now. Pay after the job." : "Paid only after the job is done."}
+              </p>
+            </div>
           </div>
         </section>
 
         {/* Helpers */}
-        <section className="border-t border-slate-200 py-12" aria-labelledby="helpers">
-          <div className="rounded-card bg-slate-50 p-6 sm:flex sm:items-center sm:justify-between sm:gap-10 sm:p-10">
-            <div>
-              <h2 id="helpers" className="text-2xl font-bold tracking-tight">
-                Strong and reliable? Earn by the hour.
-              </h2>
-              <p className="mt-2 max-w-xl text-slate-500">
-                Pick the jobs you want near home, set your own hours, and get rated for great work. No truck needed. You
-                must live in {state} and be 18 or older.
-                {offline
-                  ? " Customers pay you in person at the end of each job."
-                  : " Get paid to your bank through Stripe."}
-              </p>
+        <section className="bg-white" aria-labelledby="helpers">
+          <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
+            <div className="rounded-card bg-navy p-8 sm:flex sm:items-center sm:justify-between sm:gap-10 sm:p-12">
+              <div>
+                <h2 id="helpers" className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                  Strong and reliable? Earn by the hour.
+                </h2>
+                <p className="mt-3 max-w-xl leading-relaxed text-slate-300">
+                  Pick the jobs you want near home, set your own hours, and get rated for great work. No truck needed.
+                  You must live in {state} and be 18 or older.
+                  {offline
+                    ? " Customers pay you in person at the end of each job."
+                    : " Get paid to your bank through Stripe."}
+                </p>
+              </div>
+              <Link href="/login?intent=helper" className="btn-on-dark mt-6 shrink-0 sm:mt-0 sm:w-auto sm:px-8">
+                Become a helper
+              </Link>
             </div>
-            <Link href="/login?intent=helper" className="btn-secondary mt-6 shrink-0 sm:mt-0 sm:w-auto">
-              Become a helper
-            </Link>
           </div>
         </section>
 
         {/* FAQ */}
-        <section className="border-t border-slate-200 py-12" aria-labelledby="faq">
-          <h2 id="faq" className="text-2xl font-bold tracking-tight">
-            Questions
-          </h2>
-          <div className="mt-4 divide-y divide-slate-200 border-b border-slate-200">
-            {faqs.map(([q, a]) => (
-              <details key={q} className="group py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between font-semibold">
-                  {q}
-                  <span className="text-xl text-slate-500 transition-transform group-open:rotate-45">+</span>
-                </summary>
-                <p className="mt-2 max-w-2xl leading-relaxed text-slate-500">{a}</p>
-              </details>
-            ))}
+        <section className="bg-slate-50" aria-labelledby="faq">
+          <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+            <p className="eyebrow text-center">FAQ</p>
+            <h2 id="faq" className="section-title mt-2 text-center">
+              Questions, answered
+            </h2>
+            <div className="mt-10 divide-y divide-slate-200 rounded-card border border-slate-200 bg-white px-5 shadow-card sm:px-6">
+              {faqs.map(([q, a]) => (
+                <details key={q} className="group py-5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg font-semibold text-slate-900">
+                    {q}
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-50 text-xl text-brand-600 transition-transform group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+                  <p className="mt-3 leading-relaxed text-slate-600">{a}</p>
+                </details>
+              ))}
+            </div>
           </div>
-          <div className="mt-10 text-center">
-            <Link href="/login?intent=hire" className="btn-primary sm:w-auto sm:px-10">
-              Get moving help
-            </Link>
+        </section>
+
+        {/* Final call to action */}
+        <section className="bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-16 text-center sm:px-6">
+            <h2 className="section-title">Ready to move?</h2>
+            <p className="mx-auto mt-3 max-w-xl text-lg text-slate-600">
+              Book local helpers in a few minutes, or get a free quote by call or text.
+            </p>
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link href={PRIMARY_CTA.href} className="btn-primary min-h-14 px-8 text-lg sm:w-auto">
+                {PRIMARY_CTA.label}
+              </Link>
+              <a href={SECONDARY_CTA.href} className="btn-secondary min-h-14 px-8 text-lg sm:w-auto">
+                {SECONDARY_CTA.label}
+              </a>
+            </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-slate-200 bg-slate-50">
-        <div className="mx-auto max-w-5xl px-4 py-10 text-sm sm:px-6">
-          <div className="grid gap-8 sm:grid-cols-4">
-            <div>
-              <Logo />
-              <p className="mt-3 text-slate-500">
-                A labor-only marketplace in {state}. Not a moving company or broker.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold">LiftCrew</h3>
-              <ul className="mt-3 space-y-2 text-slate-500">
-                <li>
-                  <Link href="/login?intent=hire" className="hover:underline">
-                    Hire helpers
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/login?intent=helper" className="hover:underline">
-                    Become a helper
-                  </Link>
-                </li>
-                {phone && (
-                  <li>
-                    <a href={`tel:${phone.e164}`} className="hover:underline">
-                      {phone.display}
-                    </a>
-                  </li>
-                )}
-                <li>
-                  <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:underline">
-                    {SUPPORT_EMAIL}
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold">Areas we serve</h3>
-              <ul className="mt-3 space-y-2 text-slate-500">
-                {TOWNS.map((t) => (
-                  <li key={t.slug}>
-                    <Link href={`/moving-help/${t.slug}`} className="hover:underline">
-                      Moving help in {t.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold">Legal</h3>
-              <ul className="mt-3 space-y-2 text-slate-500">
-                {LEGAL_DOCS.map((d) => (
-                  <li key={d.href}>
-                    <Link href={d.href} className="hover:underline">
-                      {d.title}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-          <p className="mt-8 border-t border-slate-200 pt-6 text-xs text-slate-500">
-            © {new Date().getFullYear()} LiftCrew · {state}
-          </p>
-        </div>
-      </footer>
+      <SiteFooter phone={phone} state={state} />
+      <MobileCtaBar />
     </div>
   );
 }

@@ -5,6 +5,8 @@ import QuoteForm from "@/components/QuoteForm";
 import ContactButtons from "@/components/ContactButtons";
 import BusinessJsonLd from "@/components/BusinessJsonLd";
 import MarketingShell from "@/components/MarketingShell";
+import Icon from "@/components/Icon";
+import { PRIMARY_CTA, SECONDARY_CTA } from "@/lib/cta";
 import { parseBusinessPhone } from "@/lib/contact";
 import { envValue } from "@/lib/env";
 import { MIN_JOB_HOURS } from "@/lib/pricing";
@@ -70,32 +72,28 @@ export default function TownPage({ params }: { params: { town: string } }) {
     })),
   };
 
-  return (
-    <MarketingShell phone={phone}>
-      <BusinessJsonLd phone={phone} town={town.name} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }}
-      />
-
+  const hero = (
+    <>
       <nav className="pt-6 text-sm text-slate-500" aria-label="Breadcrumb">
-        <Link href="/" className="hover:underline">
+        <Link href="/" className="hover:text-slate-900 hover:underline">
           Home
         </Link>{" "}
         /{" "}
-        <Link href="/moving-help" className="hover:underline">
+        <Link href="/moving-help" className="hover:text-slate-900 hover:underline">
           Areas we serve
         </Link>{" "}
-        / <span className="text-slate-900">{town.name}</span>
+        / <span className="font-medium text-slate-900">{town.name}</span>
       </nav>
 
-      <section className="pb-10 pt-6 sm:pt-10">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand-600">
+      <section className="pb-14 pt-6 sm:pt-10">
+        <p className="eyebrow">
           {town.name}, {town.county} County, NJ
         </p>
-        <h1 className="mt-2 max-w-3xl text-3xl font-bold tracking-tight sm:text-5xl">Moving help in {town.name}, NJ</h1>
-        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-slate-500">{town.intro}</p>
-        <p className="mt-3 max-w-2xl text-lg font-semibold">One price, pay when it&apos;s done.</p>
+        <h1 className="mt-3 max-w-3xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+          Moving help in {town.name}, NJ
+        </h1>
+        <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate-600">{town.intro}</p>
+        <p className="mt-4 max-w-2xl text-xl font-bold text-brand-600">One price, pay when it&apos;s done.</p>
         <ul className="mt-6 flex flex-wrap gap-2 text-sm">
           {[
             "Pay when it's done",
@@ -105,29 +103,44 @@ export default function TownPage({ params }: { params: { town: string } }) {
             `${MIN_JOB_HOURS}-hour minimum`,
             "Labor only: you bring the truck",
           ].map((b) => (
-            <li key={b} className="rounded-full border border-slate-200 px-3 py-1.5 font-medium">
+            <li
+              key={b}
+              className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-900"
+            >
+              <Icon name="check" className="h-4 w-4 text-brand-600" />
               {b}
             </li>
           ))}
         </ul>
-        <div className="mt-6 flex flex-col gap-3 sm:max-w-md">
-          <a href="#quote" className="btn-primary">
-            Get a free quote
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Link href={PRIMARY_CTA.href} className="btn-primary min-h-14 px-8 text-lg sm:w-auto">
+            {PRIMARY_CTA.label}
+          </Link>
+          <a href={SECONDARY_CTA.href} className="btn-secondary min-h-14 px-8 text-lg sm:w-auto">
+            {SECONDARY_CTA.label}
           </a>
-          <ContactButtons phone={phone} />
         </div>
+        <ContactButtons phone={phone} className="mt-3 sm:max-w-md" />
       </section>
+    </>
+  );
 
-      <section className="border-t border-slate-200 py-10" aria-labelledby="local">
-        <h2 id="local" className="text-2xl font-bold tracking-tight">
+  return (
+    <MarketingShell phone={phone} hero={hero}>
+      <BusinessJsonLd phone={phone} town={town.name} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd).replace(/</g, "\\u003c") }}
+      />
+
+      <section className="border-t border-slate-200 py-14" aria-labelledby="local">
+        <h2 id="local" className="section-title">
           Moving in {town.name}: what to know
         </h2>
-        <ul className="mt-4 max-w-3xl space-y-3 leading-relaxed text-slate-700">
+        <ul className="mt-6 max-w-3xl space-y-4 text-lg leading-relaxed text-slate-700">
           {town.local.map((l) => (
             <li key={l} className="flex gap-3">
-              <span className="mt-1 text-brand-600" aria-hidden>
-                ✓
-              </span>
+              <Icon name="check" className="mt-1 h-5 w-5 shrink-0 text-brand-600" />
               <span>{l}</span>
             </li>
           ))}
@@ -138,15 +151,15 @@ export default function TownPage({ params }: { params: { town: string } }) {
         </p>
       </section>
 
-      <section className="border-t border-slate-200 py-10" aria-labelledby="services">
-        <h2 id="services" className="text-2xl font-bold tracking-tight">
+      <section className="border-t border-slate-200 py-14" aria-labelledby="services">
+        <h2 id="services" className="section-title">
           What our {town.name} helpers do
         </h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {SERVICES.map(([t, d]) => (
-            <div key={t} className="rounded-card border border-slate-200 p-5">
+            <div key={t} className="card">
               <h3 className="font-semibold">{t}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-slate-500">{d}</p>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">{d}</p>
             </div>
           ))}
         </div>
@@ -156,18 +169,18 @@ export default function TownPage({ params }: { params: { town: string } }) {
         </p>
       </section>
 
-      <section id="quote" className="scroll-mt-6 border-t border-slate-200 py-10" aria-labelledby="quote-title">
-        <div className="grid gap-8 sm:grid-cols-2 sm:items-start">
+      <section id="quote" className="scroll-mt-20 border-t border-slate-200 py-14" aria-labelledby="quote-title">
+        <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
           <div>
-            <h2 id="quote-title" className="text-2xl font-bold tracking-tight">
+            <h2 id="quote-title" className="section-title">
               Get a free quote in {town.name}
             </h2>
-            <p className="mt-3 leading-relaxed text-slate-500">
+            <p className="mt-4 text-lg leading-relaxed text-slate-600">
               Tell us about your move and we&apos;ll call or text you with a price and available times. No account, no
               commitment.
             </p>
             <p className="mt-3 text-sm">
-              <Link href="/#prices" className="font-semibold underline underline-offset-4">
+              <Link href="/#prices" className="link">
                 See typical prices
               </Link>
             </p>
@@ -181,41 +194,44 @@ export default function TownPage({ params }: { params: { town: string } }) {
         </div>
       </section>
 
-      <section className="border-t border-slate-200 py-10" aria-labelledby="faq">
-        <h2 id="faq" className="text-2xl font-bold tracking-tight">
+      <section className="border-t border-slate-200 py-14" aria-labelledby="faq">
+        <h2 id="faq" className="section-title">
           {town.name} moving help questions
         </h2>
-        <div className="mt-4 divide-y divide-slate-200 border-b border-slate-200">
+        <div className="mt-8 max-w-3xl divide-y divide-slate-200 rounded-card border border-slate-200 bg-white px-5 shadow-card sm:px-6">
           {faqs.map(([q, a]) => (
             <details key={q} className="group py-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between font-semibold">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg font-semibold text-slate-900">
                 {q}
-                <span className="text-xl text-slate-500 transition-transform group-open:rotate-45">+</span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-50 text-xl text-brand-600 transition-transform group-open:rotate-45">
+                  +
+                </span>
               </summary>
-              <p className="mt-2 max-w-2xl leading-relaxed text-slate-500">{a}</p>
+              <p className="mt-3 leading-relaxed text-slate-600">{a}</p>
             </details>
           ))}
         </div>
       </section>
 
-      <section className="border-t border-slate-200 py-10" aria-labelledby="nearby">
-        <h2 id="nearby" className="text-2xl font-bold tracking-tight">
+      <section className="border-t border-slate-200 py-14" aria-labelledby="nearby">
+        <h2 id="nearby" className="section-title">
           Also serving near {town.name}
         </h2>
-        <ul className="mt-4 grid gap-3 sm:grid-cols-4">
+        <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {nearby.map((t) => (
             <li key={t.slug}>
               <Link
                 href={`/moving-help/${t.slug}`}
-                className="block rounded-card border border-slate-200 p-4 font-semibold transition-shadow hover:shadow-float"
+                className="flex items-center justify-between gap-2 rounded-card border border-slate-200 bg-white p-4 font-semibold text-slate-900 shadow-card transition hover:border-brand-600 hover:text-brand-600"
               >
                 Moving help in {t.name}
+                <Icon name="arrow" className="h-4 w-4 shrink-0" />
               </Link>
             </li>
           ))}
         </ul>
         <p className="mt-4 text-sm">
-          <Link href="/moving-help" className="font-semibold underline underline-offset-4">
+          <Link href="/moving-help" className="link">
             See all areas we serve
           </Link>
         </p>

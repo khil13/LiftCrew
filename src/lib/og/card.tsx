@@ -7,7 +7,7 @@ import { MIN_JOB_HOURS } from "@/lib/pricing";
 export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_ALT = "LiftCrew: moving help in North Jersey. One price, pay when it's done.";
 
-const BLUE = "#1d4ed8";
+const BLUE = "#3154de";
 
 function Mark({ size }: { size: number }) {
   return (
@@ -48,16 +48,16 @@ export async function ogCard({ eyebrow, headline }: { eyebrow: string; headline:
           <Mark size={72} />
           <div style={{ fontSize: 44, fontWeight: 700, color: BLUE, letterSpacing: -1 }}>LiftCrew</div>
         </div>
-        <div style={{ fontSize: 28, fontWeight: 700, color: "#6a6a6a" }}>liftcrewnj.com</div>
+        <div style={{ fontSize: 28, fontWeight: 700, color: "#5b6478" }}>liftcrewnj.com</div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <div style={{ fontSize: 30, fontWeight: 700, color: BLUE, textTransform: "uppercase", letterSpacing: 2 }}>
           {eyebrow}
         </div>
-        <div style={{ fontSize: 72, fontWeight: 700, color: "#222222", lineHeight: 1.08, letterSpacing: -2 }}>
+        <div style={{ fontSize: 72, fontWeight: 700, color: "#202b45", lineHeight: 1.08, letterSpacing: -2 }}>
           {headline}
         </div>
-        <div style={{ fontSize: 34, color: "#3f3f3f" }}>One price, pay when it&apos;s done. You bring the truck.</div>
+        <div style={{ fontSize: 34, color: "#384157" }}>One price, pay when it&apos;s done. You bring the truck.</div>
       </div>
       <div style={{ display: "flex" }}>
         <div style={{ display: "flex", gap: 14 }}>
@@ -67,8 +67,8 @@ export async function ogCard({ eyebrow, headline }: { eyebrow: string; headline:
               style={{
                 fontSize: 24,
                 fontWeight: 700,
-                color: "#222222",
-                border: "2px solid #dddddd",
+                color: "#202b45",
+                border: "2px solid #dfe4ef",
                 borderRadius: 999,
                 padding: "10px 22px",
               }}

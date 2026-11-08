@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useFormState } from "react-dom";
 import FormError from "@/components/FormError";
 import SubmitButton from "@/components/SubmitButton";
+import Icon from "@/components/Icon";
 import { requestQuote } from "@/app/quote-actions";
 import { todayInNewJersey } from "@/lib/quotes";
 
@@ -16,18 +17,25 @@ export default function QuoteForm({ defaultTown }: { defaultTown?: string } = {}
 
   if (state.sent) {
     return (
-      <div className="rounded-card border border-slate-200 p-6 text-center shadow-float" role="status">
-        <p className="text-3xl">✓</p>
-        <h3 className="mt-2 text-xl font-bold">Got it! We&apos;ll text you shortly.</h3>
-        <p className="mt-2 text-slate-500">
+      <div className="rounded-card border border-slate-200 bg-white p-8 text-center shadow-float" role="status">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+          <Icon name="check" className="h-7 w-7" />
+        </span>
+        <h3 className="mt-4 text-xl font-bold">Got it! We&apos;ll text you shortly.</h3>
+        <p className="mt-2 text-slate-600">
           Expect a call or text from LiftCrew soon with your price and available times.
         </p>
+        <p className="mt-4 text-sm text-slate-500">Nothing to pay now. No account needed.</p>
       </div>
     );
   }
 
   return (
-    <form action={action} className="space-y-4 rounded-card border border-slate-200 p-5 shadow-float sm:p-6">
+    <form action={action} className="space-y-5 rounded-card border border-slate-200 bg-white p-5 shadow-float sm:p-7">
+      <div>
+        <p className="text-lg font-bold text-slate-900">Request your free quote</p>
+        <p className="mt-1 text-sm text-slate-500">Takes about a minute. We reply by call or text.</p>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="q-name" className="label">
@@ -71,17 +79,19 @@ export default function QuoteForm({ defaultTown }: { defaultTown?: string } = {}
           <input id="q-date" name="move_date" type="date" min={today} className="input" />
         </div>
       </div>
-      <div>
-        <label htmlFor="q-helpers" className="label">
-          Helpers needed
-        </label>
-        <select id="q-helpers" name="helpers" className="input" defaultValue="2">
-          <option value="1">1 helper</option>
-          <option value="2">2 helpers</option>
-          <option value="3">3 helpers</option>
-          <option value="4">4 helpers</option>
-        </select>
-      </div>
+      <fieldset>
+        <legend className="label">Helpers needed</legend>
+        <div className="grid grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((n) => (
+            <label key={n} className="cursor-pointer">
+              <input type="radio" name="helpers" value={n} defaultChecked={n === 2} className="peer sr-only" />
+              <span className="flex h-12 items-center justify-center rounded-xl border border-slate-300 bg-white font-semibold text-slate-900 transition-colors hover:border-slate-900 peer-checked:border-brand-600 peer-checked:bg-brand-600 peer-checked:text-white peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-600">
+                {n}
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <div>
         <label htmlFor="q-details" className="label">
           What needs moving? <span className="font-normal text-slate-500">(optional)</span>
