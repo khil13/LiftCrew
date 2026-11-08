@@ -68,9 +68,10 @@ export default function AddressAutocomplete({
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/places/autocomplete?q=${encodeURIComponent(text)}&session=${sessionToken}`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(
+          `/api/places/autocomplete?q=${encodeURIComponent(text)}&session=${sessionToken}`,
+          { signal: controller.signal },
+        );
         const body = await res.json();
         if (!res.ok) throw new Error(body.error ?? "Address lookup failed");
         setSuggestions(body.suggestions);
